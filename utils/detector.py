@@ -16,6 +16,7 @@ class LoadedTemplate:
     width: int
     height: int
     search_region_ratio: Optional[Tuple[float, float, float, float]] = None
+    click_anchor_ratio: Tuple[float, float] = (0.5, 0.5)
 
 
 @dataclass
@@ -76,29 +77,45 @@ class TemplateDetector:
 
         return loaded_templates
 
-    def _load_action_templates(self, button_config: Dict[str, dict]) -> Dict[str, LoadedTemplate]:
-        loaded: Dict[str, LoadedTemplate] = {}
+    def _load_action_templates(self, button_config: Dict[str, dict]) -> Dict[str, List[LoadedTemplate]]:
+        loaded: Dict[str, List[LoadedTemplate]] = {}
 
         for action_name, config in button_config.items():
-            template_path = config.get("template")
-            if not template_path:
+            template_paths: List[str] = []
+
+            primary_template = config.get("template")
+            if primary_template:
+                template_paths.append(str(primary_template))
+
+            extra_templates = config.get("template_candidates", [])
+            if isinstance(extra_templates, Sequence):
+                for template_path in extra_templates:
+                    if template_path:
+                        template_paths.append(str(template_path))
+
+            if not template_paths:
                 continue
 
-            image = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
-            if image is None:
-                log(f"Warning: khong doc duoc action template: {template_path}")
-                continue
+            loaded[action_name] = []
+            for template_path in template_paths:
+                image = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
+                if image is None:
+                    log(f"Warning: khong doc duoc action template: {template_path}")
+                    continue
 
-            height, width = image.shape[:2]
-            loaded[action_name] = LoadedTemplate(
-                name=action_name,
-                path=template_path,
-                threshold=config.get("threshold", self.default_threshold),
-                image=image,
-                width=width,
-                height=height,
-                search_region_ratio=self._parse_search_region(config),
-            )
+                height, width = image.shape[:2]
+                loaded[action_name].append(
+                    LoadedTemplate(
+                        name=action_name,
+                        path=template_path,
+                        threshold=config.get("threshold", self.default_threshold),
+                        image=image,
+                        width=width,
+                        height=height,
+                        search_region_ratio=self._parse_search_region(config),
+                        click_anchor_ratio=self._parse_click_anchor(config),
+                    )
+                )
 
         return loaded
 
@@ -139,17 +156,24 @@ class TemplateDetector:
         left, top, right, bottom = [float(value) for value in values]
         return left, top, right, bottom
 
+    def _parse_click_anchor(self, config: dict) -> Tuple[float, float]:
+        values = config.get("match_click_anchor_ratio")
+        if not isinstance(values, Sequence) or len(values) != 2:
+            return 0.5, 0.5
+
+        return float(values[0]), float(values[1])
+
     def find_action_button(self, frame: np.ndarray, action_name: str) -> Optional[MatchResult]:
-        template = self.action_templates.get(action_name)
-        if template is None:
+        templates = self.action_templates.get(action_name)
+        if not templates:
             return None
-        return self._find_first_match(frame, [template])
+        return self._find_first_match(frame, templates)
 
     def find_all_action_buttons(self, frame: np.ndarray, action_name: str) -> List[MatchResult]:
-        template = self.action_templates.get(action_name)
-        if template is None:
+        templates = self.action_templates.get(action_name)
+        if not templates:
             return []
-        return self._find_all_matches(frame, [template])
+        return self._find_all_matches(frame, templates)
 
     def find_message(self, frame: np.ndarray, message_name: str) -> Optional[MatchResult]:
         template = self.message_templates.get(message_name)
@@ -224,9 +248,12 @@ class TemplateDetector:
                             template_name=template.name,
                             score=float(result[y_pos, x_pos]),
                             top_left=(int(x_pos + offset[0]), int(y_pos + offset[1])),
-                            click_point=(
-                                int(x_pos + offset[0] + scaled_width // 2),
-                                int(y_pos + offset[1] + scaled_height // 2),
+                            click_point=self._resolve_click_point(
+                                int(x_pos + offset[0]),
+                                int(y_pos + offset[1]),
+                                scaled_width,
+                                scaled_height,
+                                template,
                             ),
                         )
                     )
@@ -262,9 +289,12 @@ class TemplateDetector:
                         int(max_location[0] + offset[0]),
                         int(max_location[1] + offset[1]),
                     ),
-                    click_point=(
-                        int(max_location[0] + offset[0] + scaled_width // 2),
-                        int(max_location[1] + offset[1] + scaled_height // 2),
+                    click_point=self._resolve_click_point(
+                        int(max_location[0] + offset[0]),
+                        int(max_location[1] + offset[1]),
+                        scaled_width,
+                        scaled_height,
+                        template,
                     ),
                 )
                 if best_match is None or candidate.score > best_match.score:
@@ -289,6 +319,20 @@ class TemplateDetector:
         bottom = max(top + 1, min(frame_height, round(bottom_ratio * frame_height)))
 
         return gray_frame[top:bottom, left:right], (left, top)
+
+    def _resolve_click_point(
+        self,
+        top_left_x: int,
+        top_left_y: int,
+        width: int,
+        height: int,
+        template: LoadedTemplate,
+    ) -> Tuple[int, int]:
+        anchor_x, anchor_y = template.click_anchor_ratio
+        return (
+            int(top_left_x + round(width * anchor_x)),
+            int(top_left_y + round(height * anchor_y)),
+        )
 
     def _iter_scaled_templates(self, template: LoadedTemplate):
         yielded_original = False

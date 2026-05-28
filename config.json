@@ -8,7 +8,12 @@
       "width": 528,
       "height": 312
     },
-    "search_interval_seconds": 3.0
+    "search_interval_seconds": 3.0,
+    "activate_before_capture": true,
+    "activate_cooldown_seconds": 0.8,
+    "activation_settle_seconds": 0.15,
+    "blank_frame_retry_count": 2,
+    "blank_frame_retry_delay_seconds": 0.2
   },
   "matching": {
     "default_threshold": 0.85,
@@ -49,6 +54,10 @@
     "post_harvest_click_wait_seconds": [
       0.7,
       1.1
+    ],
+    "row_search_retry_delay_seconds": [
+      0.45,
+      0.75
     ],
     "scroll_delay_seconds": [
       0.6,
@@ -126,7 +135,10 @@
       },
       "available_to_harvest": {
         "template": "templates/ui/available_to_harvest_button.png",
-        "threshold": 0.88,
+        "template_candidates": [
+          "available_guess_text_icon2.png"
+        ],
+        "threshold": 0.82,
         "search_region_ratio": [
           0.02,
           0.24,
@@ -154,7 +166,15 @@
       },
       "fruit_harvest": {
         "template": "templates/ui/fruit_harvest_row_button.png",
-        "threshold": 0.88
+        "threshold": 0.88,
+        "match_click_anchor_ratio": [
+          0.5,
+          0.72
+        ],
+        "click_offset": [
+          0,
+          0
+        ]
       }
     },
     "scroll": {
@@ -162,6 +182,7 @@
         0.84,
         0.52
       ],
+      "search_retries_before_scroll": 3,
       "reset_wheel_delta": 600,
       "reset_steps": 3,
       "down_wheel_delta": -420,

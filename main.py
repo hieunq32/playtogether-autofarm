@@ -19,7 +19,7 @@ from utils.input_controller import MouseController
 from utils.logger import log
 from utils.screen import ScreenCapture
 from utils.timing import random_in_range, sleep_random
-from utils.window import GameWindow, find_bluestacks_window
+from utils.window import GameWindow, activate_window, find_bluestacks_window, is_window_foreground
 
 
 class BotState(Enum):
@@ -27,7 +27,6 @@ class BotState(Enum):
     OPEN_HOME = auto()
     OPEN_AVAILABLE_TO_HARVEST = auto()
     OPEN_HARVEST_POPUP = auto()
-    RESET_LIST_SCROLL = auto()
     SEARCH_TARGET_ROWS = auto()
     HARVEST_ROW = auto()
     SCROLL_LIST = auto()
@@ -46,9 +45,11 @@ class BotContext:
     window: Optional[GameWindow] = None
     active_row: Optional[HarvestRowMatch] = None
     last_window_refresh: float = 0.0
+    last_window_activation: float = 0.0
     next_check_time: float = 0.0
     state_attempts: int = 0
     scroll_attempts: int = 0
+    no_match_search_attempts: int = 0
     session_harvest_count: int = 0
 
 
@@ -90,7 +91,47 @@ def refresh_game_window(context: BotContext) -> bool:
 def capture_frame(context: BotContext):
     if context.window is None:
         raise RuntimeError("Chua co cua so game de chup.")
-    return context.capture.grab(context.window)
+    ensure_game_window_active(context)
+
+    retries = int(context.config["window"].get("blank_frame_retry_count", 2))
+    retry_delay = float(context.config["window"].get("blank_frame_retry_delay_seconds", 0.2))
+
+    for attempt in range(retries + 1):
+        frame = context.capture.grab(context.window)
+        if not is_likely_blank_frame(frame):
+            return frame
+
+        if attempt < retries:
+            time.sleep(retry_delay)
+            ensure_game_window_active(context)
+
+    return frame
+
+
+def ensure_game_window_active(context: BotContext) -> None:
+    if context.window is None:
+        return
+
+    window_config = context.config["window"]
+    if not window_config.get("activate_before_capture", True):
+        return
+
+    cooldown = float(window_config.get("activate_cooldown_seconds", 0.8))
+    now = time.monotonic()
+    if is_window_foreground(context.window) and (
+        now - context.last_window_activation < cooldown
+    ):
+        return
+
+    activate_window(context.window)
+    context.last_window_activation = now
+    settle_delay = float(window_config.get("activation_settle_seconds", 0.15))
+    if settle_delay > 0:
+        time.sleep(settle_delay)
+
+
+def is_likely_blank_frame(frame) -> bool:
+    return float(frame.mean()) >= 245.0 and float(frame.std()) <= 8.0
 
 
 def get_navigation_config(context: BotContext, action_name: str) -> dict:
@@ -162,6 +203,7 @@ def click_named_button(context: BotContext, action_name: str, frame=None) -> boo
 def reset_session(context: BotContext) -> None:
     context.active_row = None
     context.scroll_attempts = 0
+    context.no_match_search_attempts = 0
     context.state_attempts = 0
     context.session_harvest_count = 0
 
@@ -200,6 +242,10 @@ def handle_navigation_step(
     session_done_if_exhausted: bool = True,
 ) -> None:
     frame = capture_frame(context)
+    if sync_state_from_visible_screen(context, frame):
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
     if already_success_predicate is not None and already_success_predicate(context, frame):
         log(f"Bo qua click '{action_name}' vi da o dung man hinh cho state tiep theo.")
         set_state(context, success_state)
@@ -221,24 +267,6 @@ def handle_navigation_step(
         sleep_random(context.config["timing"]["button_retry_delay_seconds"])
 
 
-def handle_reset_list_scroll(context: BotContext) -> None:
-    if context.window is None:
-        return
-
-    scroll_config = context.config["navigation"]["scroll"]
-    hover_point = get_scroll_hover_point(context)
-    wheel_delta = int(scroll_config.get("reset_wheel_delta", 480))
-    steps = int(scroll_config.get("reset_steps", 2))
-
-    for _ in range(steps):
-        if is_escape_pressed():
-            raise KeyboardInterrupt
-        context.mouse.scroll_relative(context.window, hover_point, wheel_delta)
-        sleep_random(context.config["timing"]["scroll_delay_seconds"])
-
-    set_state(context, BotState.SEARCH_TARGET_ROWS)
-
-
 def is_available_to_harvest_visible(context: BotContext, frame) -> bool:
     return context.detector.find_action_button(frame, "available_to_harvest") is not None
 
@@ -253,6 +281,32 @@ def is_fruit_list_visible(context: BotContext, frame) -> bool:
     return bool(context.detector.find_harvestable_rows(frame))
 
 
+def sync_state_from_visible_screen(context: BotContext, frame) -> bool:
+    if is_fruit_list_visible(context, frame):
+        if context.state in {
+            BotState.OPEN_HOME,
+            BotState.OPEN_AVAILABLE_TO_HARVEST,
+            BotState.OPEN_HARVEST_POPUP,
+        }:
+            log("Da o san trong danh sach trai cay. Chuyen thang sang buoc tim dong can thu hoach.")
+            set_state(context, BotState.SEARCH_TARGET_ROWS)
+            return True
+
+    if is_harvest_popup_visible(context, frame):
+        if context.state in {BotState.OPEN_HOME, BotState.OPEN_AVAILABLE_TO_HARVEST}:
+            log("Da o san popup quan ly nha. Chuyen thang sang buoc click 'Thu hoach trai'.")
+            set_state(context, BotState.OPEN_HARVEST_POPUP)
+            return True
+
+    if is_available_to_harvest_visible(context, frame):
+        if context.state == BotState.OPEN_HOME:
+            log("Da o san man hinh co 'Co the thu hoach'. Bo qua buoc 'Nha ta'.")
+            set_state(context, BotState.OPEN_AVAILABLE_TO_HARVEST)
+            return True
+
+    return False
+
+
 def handle_search_target_rows(context: BotContext) -> None:
     frame = capture_frame(context)
 
@@ -262,10 +316,20 @@ def handle_search_target_rows(context: BotContext) -> None:
 
     rows = context.detector.find_harvestable_rows(frame)
     if rows:
+        context.no_match_search_attempts = 0
         context.active_row = rows[0]
         set_state(context, BotState.HARVEST_ROW)
         return
 
+    retry_before_scroll = int(
+        context.config["navigation"]["scroll"].get("search_retries_before_scroll", 2)
+    )
+    if context.no_match_search_attempts < retry_before_scroll:
+        context.no_match_search_attempts += 1
+        sleep_random(context.config["timing"].get("row_search_retry_delay_seconds", [0.5, 0.9]))
+        return
+
+    context.no_match_search_attempts = 0
     max_scroll_attempts = int(context.config["navigation"]["scroll"]["max_attempts"])
     if context.scroll_attempts >= max_scroll_attempts:
         finish_harvest_session(
@@ -283,10 +347,23 @@ def handle_harvest_row(context: BotContext) -> None:
         return
 
     row = context.active_row
-    context.mouse.click_relative(context.window, row.button_point)
+    button_config = get_navigation_config(context, "fruit_harvest")
+    offset_x, offset_y = resolve_click_offset(
+        button_config,
+        (context.window.width, context.window.height),
+        context.reference_client_size,
+    )
+    click_point = row.button_point
+    if offset_x or offset_y:
+        click_point = clamp_point(
+            (row.button_point[0] + offset_x, row.button_point[1] + offset_y),
+            (context.window.width, context.window.height),
+        )
+
+    context.mouse.click_relative(context.window, click_point)
     context.session_harvest_count += 1
     log(
-        f"Harvest '{row.fruit_name}' tai button {row.button_point} "
+        f"Harvest '{row.fruit_name}' tai button {click_point} "
         f"(label_score={row.label_score:.3f}, button_score={row.button_score:.3f})"
     )
 
@@ -304,6 +381,7 @@ def handle_scroll_list(context: BotContext) -> None:
     wheel_delta = int(scroll_config.get("down_wheel_delta", -360))
     context.mouse.scroll_relative(context.window, hover_point, wheel_delta)
     context.scroll_attempts += 1
+    context.no_match_search_attempts = 0
     log(f"Da cuon danh sach xuong. So lan cuon: {context.scroll_attempts}")
     sleep_random(context.config["timing"]["scroll_delay_seconds"])
     set_state(context, BotState.SEARCH_TARGET_ROWS)
@@ -356,12 +434,10 @@ def run_state_machine(context: BotContext) -> None:
             handle_navigation_step(
                 context,
                 action_name="harvest_fruit_popup",
-                success_state=BotState.RESET_LIST_SCROLL,
+                success_state=BotState.SEARCH_TARGET_ROWS,
                 failure_reason="Khong mo duoc popup 'Thu hoach trai'",
                 already_success_predicate=is_fruit_list_visible,
             )
-        elif context.state == BotState.RESET_LIST_SCROLL:
-            handle_reset_list_scroll(context)
         elif context.state == BotState.SEARCH_TARGET_ROWS:
             handle_search_target_rows(context)
         elif context.state == BotState.HARVEST_ROW:

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Iterable, Optional
 
+import win32con
 import win32gui
 
 
@@ -74,3 +75,15 @@ def find_bluestacks_window(title_keywords) -> Optional[GameWindow]:
 
     candidates.sort(key=lambda item: item.width * item.height, reverse=True)
     return candidates[0]
+
+
+def is_window_foreground(window: GameWindow) -> bool:
+    return win32gui.GetForegroundWindow() == window.hwnd
+
+
+def activate_window(window: GameWindow) -> None:
+    if win32gui.IsIconic(window.hwnd):
+        win32gui.ShowWindow(window.hwnd, win32con.SW_RESTORE)
+
+    win32gui.BringWindowToTop(window.hwnd)
+    win32gui.SetForegroundWindow(window.hwnd)
