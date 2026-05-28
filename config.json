@@ -118,6 +118,15 @@
       "enabled": false
     }
   ],
+  "blocked_fruit_templates": [
+    {
+      "name": "ginseng",
+      "display_name": "Nhan sam",
+      "path": "templates/blocked/ginseng_label.png",
+      "threshold": 0.9,
+      "enabled": true
+    }
+  ],
   "navigation": {
     "max_button_search_retries": 5,
     "buttons": {

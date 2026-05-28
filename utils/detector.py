@@ -41,10 +41,17 @@ class TemplateDetector:
         self.default_threshold = config["matching"].get("default_threshold", 0.85)
         self.match_distance = config["matching"].get("match_distance", 25)
         self.row_tolerance_ratio = config["matching"].get("row_tolerance_ratio", 0.06)
+        self.blocked_row_x_tolerance_ratio = config["matching"].get(
+            "blocked_row_x_tolerance_ratio",
+            0.12,
+        )
         self.template_scales = [
             float(scale) for scale in config["matching"].get("template_scales", [1.0])
         ]
         self.fruit_templates = self._load_templates(config.get("fruit_templates", []))
+        self.blocked_fruit_templates = self._load_templates(
+            config.get("blocked_fruit_templates", [])
+        )
         self.action_templates = self._load_action_templates(
             config.get("navigation", {}).get("buttons", {})
         )
@@ -188,10 +195,18 @@ class TemplateDetector:
             return []
 
         row_tolerance = max(6, round(frame.shape[0] * float(self.row_tolerance_ratio)))
+        blocked_x_tolerance = max(
+            32,
+            round(frame.shape[1] * float(self.blocked_row_x_tolerance_ratio)),
+        )
+        blocked_matches = self._find_all_matches(frame, self.blocked_fruit_templates)
         remaining_buttons = button_matches.copy()
         rows: List[HarvestRowMatch] = []
 
         for label in sorted(label_matches, key=lambda item: (item.click_point[1], item.click_point[0])):
+            if self._is_blocked_row(label, blocked_matches, row_tolerance, blocked_x_tolerance):
+                continue
+
             candidates = [
                 button
                 for button in remaining_buttons
@@ -221,6 +236,21 @@ class TemplateDetector:
             )
 
         return rows
+
+    def _is_blocked_row(
+        self,
+        label: MatchResult,
+        blocked_matches: Sequence[MatchResult],
+        row_tolerance: int,
+        blocked_x_tolerance: int,
+    ) -> bool:
+        for blocked in blocked_matches:
+            if (
+                abs(blocked.top_left[1] - label.top_left[1]) <= row_tolerance
+                and abs(blocked.top_left[0] - label.top_left[0]) <= blocked_x_tolerance
+            ):
+                return True
+        return False
 
     def _find_all_matches(
         self,
