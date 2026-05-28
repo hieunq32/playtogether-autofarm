@@ -331,7 +331,7 @@ def handle_search_target_rows(context: BotContext) -> None:
 
     context.no_match_search_attempts = 0
     max_scroll_attempts = int(context.config["navigation"]["scroll"]["max_attempts"])
-    if context.scroll_attempts >= max_scroll_attempts:
+    if max_scroll_attempts > 0 and context.scroll_attempts >= max_scroll_attempts:
         finish_harvest_session(
             context,
             f"Khong tim thay them dong trai can thu hoach. Da harvest {context.session_harvest_count} lan",

@@ -1,0 +1,14 @@
+[23:38:59] Bot da chay. Nhan ESC de dung an toan.
+[23:38:59] Da gan cua so BlueStacks: 'BlueStacks App Player' tai (1391, 718) kich thuoc 528x312
+[23:38:59] State -> OPEN_HOME
+[23:39:00] Da o san trong danh sach trai cay. Chuyen thang sang buoc tim dong can thu hoach.
+[23:39:00] State -> SEARCH_TARGET_ROWS
+[23:39:02] State -> HARVEST_ROW
+[23:39:02] Harvest 'starfruit' tai button (213, 100) (label_score=0.999, button_score=0.949)
+[23:39:03] State -> SEARCH_TARGET_ROWS
+[23:39:04] State -> HARVEST_ROW
+[23:39:04] Harvest 'starfruit' tai button (213, 100) (label_score=1.000, button_score=0.949)
+[23:39:05] State -> SEARCH_TARGET_ROWS
+[23:39:06] State -> HARVEST_ROW
+[23:39:06] Harvest 'starfruit' tai button (213, 100) (label_score=1.000, button_score=0.949)
+[23:39:07] State -> SEARCH_TARGET_ROWS

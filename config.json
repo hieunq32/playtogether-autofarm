@@ -90,7 +90,7 @@
       "display_name": "Khế",
       "growth_hours": 5,
       "path": "templates/fruits/starfruit_label.png",
-      "threshold": 0.88,
+      "threshold": 0.8,
       "enabled": true
     },
     {
@@ -98,8 +98,8 @@
       "display_name": "Táo đường",
       "growth_hours": 5,
       "path": "templates/fruits/sugar_apple_label.png",
-      "threshold": 0.88,
-      "enabled": false
+      "threshold": 0.8,
+      "enabled": true
     },
     {
       "name": "coconut",
@@ -195,7 +195,7 @@
       "reset_wheel_delta": 600,
       "reset_steps": 3,
       "down_wheel_delta": -420,
-      "max_attempts": 12
+      "max_attempts": 0
     },
     "allow_fallback_clicks": false
   },
