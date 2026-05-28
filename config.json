@@ -106,16 +106,19 @@
       "display_name": "Dừa",
       "growth_hours": 1,
       "path": "templates/fruits/coconut_label.png",
-      "threshold": 0.88,
-      "enabled": false
+      "threshold": 0.79,
+      "enabled": true
     },
     {
       "name": "bean",
       "display_name": "Đậu",
       "growth_hours": 4,
       "path": "templates/fruits/bean_label.png",
-      "threshold": 0.88,
-      "enabled": false
+      "template_candidates": [
+        "templates/fruits/bean_label_alt.png"
+      ],
+      "threshold": 0.82,
+      "enabled": true
     }
   ],
   "blocked_fruit_templates": [

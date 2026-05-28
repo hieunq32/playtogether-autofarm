@@ -41,6 +41,10 @@ class TemplateDetector:
         self.default_threshold = config["matching"].get("default_threshold", 0.85)
         self.match_distance = config["matching"].get("match_distance", 25)
         self.row_tolerance_ratio = config["matching"].get("row_tolerance_ratio", 0.06)
+        self.label_to_button_max_distance_ratio = config["matching"].get(
+            "label_to_button_max_distance_ratio",
+            0.45,
+        )
         self.blocked_row_x_tolerance_ratio = config["matching"].get(
             "blocked_row_x_tolerance_ratio",
             0.12,
@@ -64,23 +68,35 @@ class TemplateDetector:
             if not item.get("enabled", True):
                 continue
 
-            image = cv2.imread(item["path"], cv2.IMREAD_GRAYSCALE)
-            if image is None:
-                log(f"Warning: khong doc duoc template: {item['path']}")
-                continue
+            template_paths: List[str] = []
+            primary_path = item.get("path")
+            if primary_path:
+                template_paths.append(str(primary_path))
 
-            height, width = image.shape[:2]
-            loaded_templates.append(
-                LoadedTemplate(
-                    name=item["name"],
-                    path=item["path"],
-                    threshold=item.get("threshold", self.default_threshold),
-                    image=image,
-                    width=width,
-                    height=height,
-                    search_region_ratio=self._parse_search_region(item),
+            extra_paths = item.get("template_candidates", [])
+            if isinstance(extra_paths, Sequence):
+                for extra_path in extra_paths:
+                    if extra_path:
+                        template_paths.append(str(extra_path))
+
+            for template_path in template_paths:
+                image = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
+                if image is None:
+                    log(f"Warning: khong doc duoc template: {template_path}")
+                    continue
+
+                height, width = image.shape[:2]
+                loaded_templates.append(
+                    LoadedTemplate(
+                        name=item["name"],
+                        path=template_path,
+                        threshold=item.get("threshold", self.default_threshold),
+                        image=image,
+                        width=width,
+                        height=height,
+                        search_region_ratio=self._parse_search_region(item),
+                    )
                 )
-            )
 
         return loaded_templates
 
@@ -195,36 +211,41 @@ class TemplateDetector:
             return []
 
         row_tolerance = max(6, round(frame.shape[0] * float(self.row_tolerance_ratio)))
+        max_label_to_button_distance = max(
+            80,
+            round(frame.shape[1] * float(self.label_to_button_max_distance_ratio)),
+        )
         blocked_x_tolerance = max(
             32,
             round(frame.shape[1] * float(self.blocked_row_x_tolerance_ratio)),
         )
         blocked_matches = self._find_all_matches(frame, self.blocked_fruit_templates)
-        remaining_buttons = button_matches.copy()
         rows: List[HarvestRowMatch] = []
 
-        for label in sorted(label_matches, key=lambda item: (item.click_point[1], item.click_point[0])):
-            if self._is_blocked_row(label, blocked_matches, row_tolerance, blocked_x_tolerance):
-                continue
-
+        for button in sorted(button_matches, key=lambda item: (item.top_left[1], item.top_left[0])):
             candidates = [
-                button
-                for button in remaining_buttons
-                if button.top_left[0] > label.top_left[0]
+                label
+                for label in label_matches
+                if 0 < (button.top_left[0] - label.top_left[0]) <= max_label_to_button_distance
                 and abs(button.top_left[1] - label.top_left[1]) <= row_tolerance
+                and not self._is_blocked_row(
+                    label,
+                    blocked_matches,
+                    row_tolerance,
+                    blocked_x_tolerance,
+                )
             ]
             if not candidates:
                 continue
 
-            button = sorted(
+            label = sorted(
                 candidates,
                 key=lambda item: (
-                    abs(item.top_left[1] - label.top_left[1]),
-                    item.top_left[0] - label.top_left[0],
                     -item.score,
+                    abs(button.top_left[1] - item.top_left[1]),
+                    button.top_left[0] - item.top_left[0],
                 ),
             )[0]
-            remaining_buttons.remove(button)
             rows.append(
                 HarvestRowMatch(
                     fruit_name=label.template_name,
