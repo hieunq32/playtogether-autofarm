@@ -1,0 +1,11 @@
+Đây là các bước cần phải thực hiện công việc lặp đi lặp lại: tới giờ thu hoạch trái cây, rồi đầy, rồi bán.Tổng có các loại cây là: táo đường, khế, sầu riêng, dừa. đậu1. Thời gian từ lúc chưa mọc quả tới lúc cây có quả để tự động thu hoạch:- Sầu riêng: 5 tiếng- Khế : 5 tiếng
+- Táo đường 5 tiếng
+- Dừa: 1 tiếng.
+- Đậu: 4 tiếngOUTPUT: Mong muốn cứ tới khung giờ đó là tự động vào thu hoạch.I/ Dưới đây là các bước thực hiện công việc lặp đi lặp lại:1. Bước 1: 
+- Click vào “Nhà ta” trên giao diện, sau đó click vào “Có thể thu hoạch”. Sau khi click như vậy sẽ hiện ra 1 popup như sau:
+Sau khi popup hiện lên khi click vào “Có thể thu hoạch” thì sẽ click vào button “Thu hoạch trái”.-> Tới đây đã xong bước 1 để có thể sang tới Bước 2: Giao diện trái cây để thu hoạch.
+2. Bước 2: Giao diện trái cây để thu hoạch.
+ 
+Đây sẽ là giao diện khi click vào button:  “Thu hoạch trái”.Chúng ta sẽ quan tâm những cây có tên như: sầu riêng, táo đường, khế, dừa, đậu.Ở mỗi cây sẽ có button “Thu hoạch” ở bên cạnh. -> Tôi muốn bạn click vào button “Thu hoạch” những cây đã yêu cầu, Nếu thấy loại quả khác với những tên yêu cầu thì chúng ta có thể cuộn chuột xuống phía dưới để tìm kiếm trái có tên trong danh sách thu hoạch.->Sau khi click vào button “Thu hoạch” và thu hoạch một số lượng đủ nhiều thì sẽ hiện lên message đầy túi như hình dưới đây:
+message có tên là: “Túi đã đầy nên không thể thu hoạch”
+-> Tới đây là đã hết bước 2. chuyển sang bước 3 là bán.

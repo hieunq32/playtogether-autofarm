@@ -1,0 +1,181 @@
+{
+  "window": {
+    "title_keywords": [
+      "BlueStacks App Player",
+      "BlueStacks"
+    ],
+    "reference_client_size": {
+      "width": 528,
+      "height": 312
+    },
+    "search_interval_seconds": 3.0
+  },
+  "matching": {
+    "default_threshold": 0.85,
+    "match_distance": 24,
+    "row_tolerance_ratio": 0.06,
+    "template_scales": [
+      0.85,
+      0.92,
+      1.0,
+      1.08,
+      1.16
+    ]
+  },
+  "scheduler": {
+    "run_immediately_on_start": true,
+    "idle_check_interval_seconds": [
+      120,
+      180
+    ]
+  },
+  "timing": {
+    "loop_delay_seconds": [
+      0.4,
+      0.8
+    ],
+    "click_delay_seconds": [
+      0.18,
+      0.35
+    ],
+    "post_navigation_wait_seconds": [
+      0.8,
+      1.2
+    ],
+    "button_retry_delay_seconds": [
+      0.6,
+      1.0
+    ],
+    "post_harvest_click_wait_seconds": [
+      0.7,
+      1.1
+    ],
+    "scroll_delay_seconds": [
+      0.6,
+      0.9
+    ],
+    "window_not_found_delay_seconds": [
+      1.5,
+      2.5
+    ]
+  },
+  "input": {
+    "backend": "pydirectinput",
+    "move_duration_seconds": [
+      0.04,
+      0.12
+    ],
+    "click_jitter_pixels": 0
+  },
+  "fruit_templates": [
+    {
+      "name": "durian",
+      "display_name": "Sầu riêng",
+      "growth_hours": 5,
+      "path": "templates/fruits/durian_label.png",
+      "threshold": 0.85,
+      "enabled": true
+    },
+    {
+      "name": "starfruit",
+      "display_name": "Khế",
+      "growth_hours": 5,
+      "path": "templates/fruits/starfruit_label.png",
+      "threshold": 0.88,
+      "enabled": true
+    },
+    {
+      "name": "sugar_apple",
+      "display_name": "Táo đường",
+      "growth_hours": 5,
+      "path": "templates/fruits/sugar_apple_label.png",
+      "threshold": 0.88,
+      "enabled": false
+    },
+    {
+      "name": "coconut",
+      "display_name": "Dừa",
+      "growth_hours": 1,
+      "path": "templates/fruits/coconut_label.png",
+      "threshold": 0.88,
+      "enabled": false
+    },
+    {
+      "name": "bean",
+      "display_name": "Đậu",
+      "growth_hours": 4,
+      "path": "templates/fruits/bean_label.png",
+      "threshold": 0.88,
+      "enabled": false
+    }
+  ],
+  "navigation": {
+    "max_button_search_retries": 5,
+    "buttons": {
+      "open_home": {
+        "template": "templates/ui/home_button.png",
+        "threshold": 0.88,
+        "click_offset": [
+          -8,
+          10
+        ],
+        "fallback_click_ratio": [
+          0.5,
+          0.92
+        ]
+      },
+      "available_to_harvest": {
+        "template": "templates/ui/available_to_harvest_button.png",
+        "threshold": 0.88,
+        "search_region_ratio": [
+          0.02,
+          0.24,
+          0.36,
+          0.72
+        ],
+        "fallback_click_ratio": [
+          0.5,
+          0.5
+        ]
+      },
+      "harvest_fruit_popup": {
+        "template": "templates/ui/harvest_fruit_popup_button.png",
+        "threshold": 0.88,
+        "search_region_ratio": [
+          0.24,
+          0.16,
+          0.68,
+          0.62
+        ],
+        "fallback_click_ratio": [
+          0.5,
+          0.73
+        ]
+      },
+      "fruit_harvest": {
+        "template": "templates/ui/fruit_harvest_row_button.png",
+        "threshold": 0.88
+      }
+    },
+    "scroll": {
+      "hover_point_ratio": [
+        0.84,
+        0.52
+      ],
+      "reset_wheel_delta": 600,
+      "reset_steps": 3,
+      "down_wheel_delta": -420,
+      "max_attempts": 12
+    },
+    "allow_fallback_clicks": false
+  },
+  "messages": {
+    "bag_full": {
+      "template": "templates/ui/bag_full_message.png",
+      "threshold": 0.9
+    }
+  },
+  "workflow": {
+    "stop_when_bag_full": true
+  }
+}
