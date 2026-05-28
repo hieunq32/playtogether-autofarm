@@ -82,7 +82,7 @@
       "display_name": "Sầu riêng",
       "growth_hours": 5,
       "path": "templates/fruits/durian_label.png",
-      "threshold": 0.85,
+      "threshold": 0.78,
       "enabled": true
     },
     {
