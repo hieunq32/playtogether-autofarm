@@ -5,6 +5,8 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Optional
 
+import cv2
+
 from utils.config import load_config
 from utils.detector import HarvestRowMatch, TemplateDetector
 from utils.geometry import (
@@ -169,7 +171,11 @@ def click_named_button(context: BotContext, action_name: str, frame=None) -> boo
         click_point = button_match.click_point
         source = "template"
     else:
-        if not context.config["navigation"].get("allow_fallback_clicks", False):
+        allow_fallback = context.config["navigation"].get("allow_fallback_clicks", False)
+        if button_config.get("force_allow_fallback", False):
+            allow_fallback = True
+
+        if not allow_fallback:
             log(f"Bo qua fallback cho '{action_name}' vi allow_fallback_clicks=false.")
             return False
         click_point = resolve_click_position(
@@ -198,6 +204,12 @@ def click_named_button(context: BotContext, action_name: str, frame=None) -> boo
     log(f"Clicked '{action_name}' bang {source} tai {click_point}.")
     sleep_random(context.config["timing"]["click_delay_seconds"])
     return True
+
+
+def save_runtime_frame(filename: str, frame) -> None:
+    output_path = Path(__file__).resolve().parent / filename
+    cv2.imwrite(str(output_path), frame)
+    log(f"Da luu anh runtime: {output_path.name}")
 
 
 def reset_session(context: BotContext) -> None:
@@ -388,7 +400,16 @@ def handle_scroll_list(context: BotContext) -> None:
 
 
 def handle_bag_full(context: BotContext) -> None:
-    log("Phat hien thong bao day tui. Hoan thanh file 1, dung truoc khi sang flow ban.")
+    frame = capture_frame(context)
+    save_runtime_frame("bag_full_live_detected.png", frame)
+    log("Phat hien thong bao day tui. Thu dong popup bang nut X.")
+
+    if click_named_button(context, "close_harvest_popup", frame):
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        closed_frame = capture_frame(context)
+        save_runtime_frame("after_bag_full_close.png", closed_frame)
+    else:
+        log("Khong dong duoc popup day tui bang nut X.")
 
     if context.config["workflow"].get("stop_when_bag_full", True):
         raise KeyboardInterrupt

@@ -86,4 +86,8 @@ def activate_window(window: GameWindow) -> None:
         win32gui.ShowWindow(window.hwnd, win32con.SW_RESTORE)
 
     win32gui.BringWindowToTop(window.hwnd)
-    win32gui.SetForegroundWindow(window.hwnd)
+    try:
+        win32gui.SetForegroundWindow(window.hwnd)
+    except win32gui.error:
+        # Windows may deny foreground changes for background processes.
+        pass
