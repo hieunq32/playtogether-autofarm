@@ -33,6 +33,17 @@ class BotState(Enum):
     HARVEST_ROW = auto()
     SCROLL_LIST = auto()
     BAG_FULL = auto()
+    OPEN_SELL_ENTRY = auto()
+    OPEN_SELL_CART = auto()
+    ADVANCE_SELL_NPC_DIALOG = auto()
+    OPEN_SELL_PRODUCE_OPTION = auto()
+    SELL_AUTO_SELECT = auto()
+    SELL_SUBMIT_SELECTION = auto()
+    SELL_CONFIRM_POPUP_SUBMIT = auto()
+    SELL_FINAL_CONFIRM = auto()
+    SELL_SUCCESS_OK = auto()
+    SELL_CLOSE_SCREEN = auto()
+    SELL_DISMISS_END_DIALOG = auto()
     SESSION_DONE = auto()
 
 
@@ -275,6 +286,7 @@ def handle_navigation_step(
             finish_harvest_session(context, failure_reason)
         else:
             log(f"Het so lan thu cho state '{context.state.name}'.")
+            set_state(context, BotState.SESSION_DONE)
     else:
         sleep_random(context.config["timing"]["button_retry_delay_seconds"])
 
@@ -293,7 +305,139 @@ def is_fruit_list_visible(context: BotContext, frame) -> bool:
     return bool(context.detector.find_harvestable_rows(frame))
 
 
+def is_sell_entry_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "sell_entry") is not None
+
+
+def is_sell_cart_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "sell_cart") is not None
+
+
+def is_npc_dialog_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "npc_dialog_continue") is not None
+
+
+def is_sell_produce_option_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "sell_produce_option") is not None
+
+
+def is_sell_auto_select_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "sell_auto_select") is not None
+
+
+def is_sell_bottom_submit_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "sell_bottom_submit") is not None
+
+
+def is_sell_popup_submit_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "sell_popup_submit") is not None
+
+
+def is_sell_final_confirm_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "sell_final_confirm") is not None
+
+
+def is_sell_success_ok_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "sell_success_ok") is not None
+
+
+def is_sell_screen_close_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "sell_screen_close") is not None
+
+
 def sync_state_from_visible_screen(context: BotContext, frame) -> bool:
+    sell_states = {
+        BotState.OPEN_SELL_ENTRY,
+        BotState.OPEN_SELL_CART,
+        BotState.ADVANCE_SELL_NPC_DIALOG,
+        BotState.OPEN_SELL_PRODUCE_OPTION,
+        BotState.SELL_AUTO_SELECT,
+        BotState.SELL_SUBMIT_SELECTION,
+        BotState.SELL_CONFIRM_POPUP_SUBMIT,
+        BotState.SELL_FINAL_CONFIRM,
+        BotState.SELL_SUCCESS_OK,
+        BotState.SELL_CLOSE_SCREEN,
+        BotState.SELL_DISMISS_END_DIALOG,
+    }
+
+    if is_sell_success_ok_visible(context, frame):
+        if context.state != BotState.SELL_SUCCESS_OK:
+            log("Da o san popup thong bao ban hang thanh cong.")
+            set_state(context, BotState.SELL_SUCCESS_OK)
+            return True
+        return False
+
+    if is_sell_final_confirm_visible(context, frame):
+        if context.state != BotState.SELL_FINAL_CONFIRM:
+            log("Da o san popup xac nhan cuoi cung cua buoc ban.")
+            set_state(context, BotState.SELL_FINAL_CONFIRM)
+            return True
+        return False
+
+    if is_sell_popup_submit_visible(context, frame):
+        if context.state != BotState.SELL_CONFIRM_POPUP_SUBMIT:
+            log("Da o san popup xac nhan ban hang voi nut xanh so tien.")
+            set_state(context, BotState.SELL_CONFIRM_POPUP_SUBMIT)
+            return True
+        return False
+
+    if context.state == BotState.SELL_CLOSE_SCREEN and is_sell_screen_close_visible(context, frame):
+        return False
+
+    if is_sell_auto_select_visible(context, frame):
+        if context.state not in {BotState.SELL_AUTO_SELECT, BotState.SELL_SUBMIT_SELECTION}:
+            log("Da o san giao dien 'Ban nong san'.")
+            set_state(context, BotState.SELL_AUTO_SELECT)
+            return True
+        if context.state == BotState.SELL_AUTO_SELECT:
+            return False
+
+    if is_sell_bottom_submit_visible(context, frame):
+        if context.state not in {BotState.SELL_SUBMIT_SELECTION, BotState.SELL_AUTO_SELECT}:
+            log("Da co nut xanh xac nhan ban o giao dien 'Ban nong san'.")
+            set_state(context, BotState.SELL_SUBMIT_SELECTION)
+            return True
+        if context.state == BotState.SELL_SUBMIT_SELECTION:
+            return False
+
+    if is_sell_produce_option_visible(context, frame):
+        if context.state != BotState.OPEN_SELL_PRODUCE_OPTION:
+            log("Da o san popup chon 'Ban nong san'.")
+            set_state(context, BotState.OPEN_SELL_PRODUCE_OPTION)
+            return True
+        return False
+
+    if is_npc_dialog_visible(context, frame):
+        target_state = (
+            BotState.SELL_DISMISS_END_DIALOG
+            if context.state in {BotState.SELL_CLOSE_SCREEN, BotState.SELL_DISMISS_END_DIALOG}
+            else BotState.ADVANCE_SELL_NPC_DIALOG
+        )
+        if context.state != target_state:
+            log("Da o san hoi thoai NPC trong quy trinh ban.")
+            set_state(context, target_state)
+            return True
+        return False
+
+    if context.state in sell_states:
+
+        if is_sell_cart_visible(context, frame):
+            if context.state == BotState.SELL_DISMISS_END_DIALOG:
+                set_state(context, BotState.SESSION_DONE)
+                return True
+            if context.state != BotState.OPEN_SELL_CART:
+                log("Da o san cua hang ban voi nut gio hang trang.")
+                set_state(context, BotState.OPEN_SELL_CART)
+                return True
+            return False
+
+        if is_sell_entry_visible(context, frame):
+            if context.state != BotState.OPEN_SELL_ENTRY:
+                log("Da o san man hinh chinh co nut 'Ban'.")
+                set_state(context, BotState.OPEN_SELL_ENTRY)
+                return True
+            return False
+
     if is_fruit_list_visible(context, frame):
         if context.state in {
             BotState.OPEN_HOME,
@@ -411,10 +555,89 @@ def handle_bag_full(context: BotContext) -> None:
     else:
         log("Khong dong duoc popup day tui bang nut X.")
 
-    if context.config["workflow"].get("stop_when_bag_full", True):
-        raise KeyboardInterrupt
+    workflow_config = context.config.get("workflow", {})
+    if workflow_config.get("sell_when_bag_full", True):
+        log("Bat dau quy trinh ban nong san sau khi day tui.")
+        set_state(context, BotState.OPEN_SELL_ENTRY)
+        return
+
+    if workflow_config.get("stop_when_bag_full", True):
+        set_state(context, BotState.SESSION_DONE)
+        return
 
     finish_harvest_session(context, "Day tui")
+
+
+def handle_sell_auto_select(context: BotContext) -> None:
+    frame = capture_frame(context)
+    if sync_state_from_visible_screen(context, frame):
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    if click_named_button(context, "sell_auto_select", frame):
+        set_state(context, BotState.SELL_SUBMIT_SELECTION)
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    context.state_attempts += 1
+    max_retries = int(context.config["navigation"]["max_button_search_retries"])
+    if context.state_attempts >= max_retries:
+        log("Het so lan thu cho buoc 'Chon tu dong' trong quy trinh ban.")
+        set_state(context, BotState.SESSION_DONE)
+    else:
+        sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+
+
+def handle_sell_submit_selection(context: BotContext) -> None:
+    frame = capture_frame(context)
+    if sync_state_from_visible_screen(context, frame):
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    if (
+        is_sell_auto_select_visible(context, frame)
+        and not is_sell_bottom_submit_visible(context, frame)
+        and is_sell_screen_close_visible(context, frame)
+    ):
+        log("Khong con nong san duoc chon de ban. Dong giao dien 'Ban nong san'.")
+        set_state(context, BotState.SELL_CLOSE_SCREEN)
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    if click_named_button(context, "sell_bottom_submit", frame):
+        set_state(context, BotState.SELL_CONFIRM_POPUP_SUBMIT)
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    context.state_attempts += 1
+    max_retries = int(context.config["navigation"]["max_button_search_retries"])
+    if context.state_attempts >= max_retries:
+        log("Het so lan thu cho buoc gui danh sach nong san de ban.")
+        set_state(context, BotState.SELL_CLOSE_SCREEN)
+    else:
+        sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+
+
+def handle_sell_end_dialog(context: BotContext) -> None:
+    frame = capture_frame(context)
+    if is_sell_cart_visible(context, frame):
+        log("Da thoat khoi popup ban nong san.")
+        set_state(context, BotState.SESSION_DONE)
+        return
+
+    if is_npc_dialog_visible(context, frame):
+        if click_named_button(context, "npc_dialog_continue", frame):
+            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+            set_state(context, BotState.SESSION_DONE)
+            return
+
+    context.state_attempts += 1
+    max_retries = int(context.config["navigation"]["max_button_search_retries"])
+    if context.state_attempts >= max_retries:
+        log("Khong dong duoc hoi thoai ket thuc sau khi ban.")
+        set_state(context, BotState.SESSION_DONE)
+    else:
+        sleep_random(context.config["timing"]["button_retry_delay_seconds"])
 
 
 def run_state_machine(context: BotContext) -> None:
@@ -467,7 +690,93 @@ def run_state_machine(context: BotContext) -> None:
             handle_scroll_list(context)
         elif context.state == BotState.BAG_FULL:
             handle_bag_full(context)
+        elif context.state == BotState.OPEN_SELL_ENTRY:
+            handle_navigation_step(
+                context,
+                action_name="sell_entry",
+                success_state=BotState.OPEN_SELL_CART,
+                failure_reason="Khong mo duoc giao dien ban",
+                already_success_predicate=is_sell_cart_visible,
+                session_done_if_exhausted=False,
+            )
+        elif context.state == BotState.OPEN_SELL_CART:
+            handle_navigation_step(
+                context,
+                action_name="sell_cart",
+                success_state=BotState.ADVANCE_SELL_NPC_DIALOG,
+                failure_reason="Khong mo duoc popup chon loai ban",
+                already_success_predicate=lambda current_context, current_frame: (
+                    is_npc_dialog_visible(current_context, current_frame)
+                    or is_sell_produce_option_visible(current_context, current_frame)
+                ),
+                session_done_if_exhausted=False,
+            )
+        elif context.state == BotState.ADVANCE_SELL_NPC_DIALOG:
+            handle_navigation_step(
+                context,
+                action_name="npc_dialog_continue",
+                success_state=BotState.OPEN_SELL_PRODUCE_OPTION,
+                failure_reason="Khong vuot qua duoc hoi thoai NPC",
+                already_success_predicate=is_sell_produce_option_visible,
+                session_done_if_exhausted=False,
+            )
+        elif context.state == BotState.OPEN_SELL_PRODUCE_OPTION:
+            handle_navigation_step(
+                context,
+                action_name="sell_produce_option",
+                success_state=BotState.SELL_AUTO_SELECT,
+                failure_reason="Khong mo duoc giao dien 'Ban nong san'",
+                already_success_predicate=is_sell_auto_select_visible,
+                session_done_if_exhausted=False,
+            )
+        elif context.state == BotState.SELL_AUTO_SELECT:
+            handle_sell_auto_select(context)
+        elif context.state == BotState.SELL_SUBMIT_SELECTION:
+            handle_sell_submit_selection(context)
+        elif context.state == BotState.SELL_CONFIRM_POPUP_SUBMIT:
+            handle_navigation_step(
+                context,
+                action_name="sell_popup_submit",
+                success_state=BotState.SELL_FINAL_CONFIRM,
+                failure_reason="Khong chuyen sang popup xac nhan cuoi cung",
+                already_success_predicate=is_sell_final_confirm_visible,
+                session_done_if_exhausted=False,
+            )
+        elif context.state == BotState.SELL_FINAL_CONFIRM:
+            handle_navigation_step(
+                context,
+                action_name="sell_final_confirm",
+                success_state=BotState.SELL_SUCCESS_OK,
+                failure_reason="Khong ban duoc sau popup xac nhan cuoi cung",
+                already_success_predicate=is_sell_success_ok_visible,
+                session_done_if_exhausted=False,
+            )
+        elif context.state == BotState.SELL_SUCCESS_OK:
+            handle_navigation_step(
+                context,
+                action_name="sell_success_ok",
+                success_state=BotState.SELL_CLOSE_SCREEN,
+                failure_reason="Khong dong duoc popup ban thanh cong",
+                session_done_if_exhausted=False,
+            )
+        elif context.state == BotState.SELL_CLOSE_SCREEN:
+            handle_navigation_step(
+                context,
+                action_name="sell_screen_close",
+                success_state=BotState.SELL_DISMISS_END_DIALOG,
+                failure_reason="Khong dong duoc giao dien ban nong san",
+                already_success_predicate=lambda current_context, current_frame: (
+                    is_npc_dialog_visible(current_context, current_frame)
+                    or is_sell_cart_visible(current_context, current_frame)
+                ),
+                session_done_if_exhausted=False,
+            )
+        elif context.state == BotState.SELL_DISMISS_END_DIALOG:
+            handle_sell_end_dialog(context)
         elif context.state == BotState.SESSION_DONE:
+            log("Hoan tat quy trinh tu dong.")
+            if context.config.get("workflow", {}).get("stop_after_sell", True):
+                break
             finish_harvest_session(context, "Hoan tat session")
 
 

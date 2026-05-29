@@ -9,12 +9,22 @@ def _resolve_path(project_dir: Path, value: str) -> str:
 def _resolve_template_paths(config: dict, project_dir: Path) -> None:
     for template in config.get("fruit_templates", []):
         template["path"] = _resolve_path(project_dir, template["path"])
+        if "template_candidates" in template:
+            template["template_candidates"] = [
+                _resolve_path(project_dir, value)
+                for value in template.get("template_candidates", [])
+            ]
 
     buttons = config.get("navigation", {}).get("buttons", {})
     for button_config in buttons.values():
         template_path = button_config.get("template")
         if template_path:
             button_config["template"] = _resolve_path(project_dir, template_path)
+        if "template_candidates" in button_config:
+            button_config["template_candidates"] = [
+                _resolve_path(project_dir, value)
+                for value in button_config.get("template_candidates", [])
+            ]
 
     messages = config.get("messages", {})
     for message_config in messages.values():

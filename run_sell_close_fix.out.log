@@ -1,0 +1,16 @@
+[22:10:09] Bot da chay. Nhan ESC de dung an toan.
+[22:10:09] Da gan cua so BlueStacks: 'BlueStacks App Player' tai (1391, 720) kich thuoc 528x312
+[22:10:09] State -> OPEN_HOME
+[22:10:09] Da o san giao dien 'Ban nong san'.
+[22:10:09] State -> SELL_AUTO_SELECT
+[22:10:11] Clicked 'sell_auto_select' bang template tai (336, 289).
+[22:10:11] State -> SELL_SUBMIT_SELECTION
+[22:10:12] Khong con nong san duoc chon de ban. Dong giao dien 'Ban nong san'.
+[22:10:12] State -> SELL_CLOSE_SCREEN
+[22:10:14] Clicked 'sell_screen_close' bang template tai (470, 49).
+[22:10:14] State -> SELL_DISMISS_END_DIALOG
+[22:10:15] Clicked 'npc_dialog_continue' bang template+offset tai (260, 273).
+[22:10:16] State -> SESSION_DONE
+[22:10:16] Hoan tat quy trinh tu dong.
+[22:10:16] Hoan tat session. Lan kiem tra tiep theo sau 156.8 giay.
+[22:10:16] State -> WAIT_FOR_CHECK

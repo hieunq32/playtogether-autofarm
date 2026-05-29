@@ -227,7 +227,7 @@ class TemplateDetector:
                 label
                 for label in label_matches
                 if 0 < (button.top_left[0] - label.top_left[0]) <= max_label_to_button_distance
-                and abs(button.top_left[1] - label.top_left[1]) <= row_tolerance
+                and abs(button.click_point[1] - label.click_point[1]) <= row_tolerance
                 and not self._is_blocked_row(
                     label,
                     blocked_matches,
@@ -242,7 +242,7 @@ class TemplateDetector:
                 candidates,
                 key=lambda item: (
                     -item.score,
-                    abs(button.top_left[1] - item.top_left[1]),
+                    abs(button.click_point[1] - item.click_point[1]),
                     button.top_left[0] - item.top_left[0],
                 ),
             )[0]

@@ -1,0 +1,188 @@
+[21:39:22] Bot da chay. Nhan ESC de dung an toan.
+[21:39:22] Da gan cua so BlueStacks: 'BlueStacks App Player' tai (1392, 718) kich thuoc 528x312
+[21:39:22] State -> OPEN_HOME
+[21:39:23] Clicked 'open_home' bang template+offset tai (351, 73).
+[21:39:23] State -> OPEN_AVAILABLE_TO_HARVEST
+[21:39:25] Clicked 'available_to_harvest' bang template tai (102, 150).
+[21:39:25] State -> OPEN_HARVEST_POPUP
+[21:39:27] Clicked 'harvest_fruit_popup' bang template tai (248, 136).
+[21:39:27] State -> SEARCH_TARGET_ROWS
+[21:39:28] State -> HARVEST_ROW
+[21:39:28] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:39:29] State -> SEARCH_TARGET_ROWS
+[21:39:30] State -> HARVEST_ROW
+[21:39:30] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:39:31] State -> SEARCH_TARGET_ROWS
+[21:39:31] State -> HARVEST_ROW
+[21:39:31] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.920)
+[21:39:32] State -> SEARCH_TARGET_ROWS
+[21:39:32] State -> HARVEST_ROW
+[21:39:32] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:39:33] State -> SEARCH_TARGET_ROWS
+[21:39:34] State -> HARVEST_ROW
+[21:39:34] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:39:35] State -> SEARCH_TARGET_ROWS
+[21:39:35] State -> HARVEST_ROW
+[21:39:35] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:39:36] State -> SEARCH_TARGET_ROWS
+[21:39:37] State -> HARVEST_ROW
+[21:39:37] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:39:38] State -> SEARCH_TARGET_ROWS
+[21:39:38] State -> HARVEST_ROW
+[21:39:38] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:39:39] State -> SEARCH_TARGET_ROWS
+[21:39:39] State -> HARVEST_ROW
+[21:39:39] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:39:41] State -> SEARCH_TARGET_ROWS
+[21:39:41] State -> HARVEST_ROW
+[21:39:41] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:39:42] State -> SEARCH_TARGET_ROWS
+[21:39:43] State -> HARVEST_ROW
+[21:39:43] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:39:44] State -> SEARCH_TARGET_ROWS
+[21:39:44] State -> HARVEST_ROW
+[21:39:44] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:39:45] State -> SEARCH_TARGET_ROWS
+[21:39:45] State -> HARVEST_ROW
+[21:39:45] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:39:46] State -> SEARCH_TARGET_ROWS
+[21:39:47] State -> HARVEST_ROW
+[21:39:47] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:39:48] State -> SEARCH_TARGET_ROWS
+[21:39:49] State -> HARVEST_ROW
+[21:39:49] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:39:49] State -> SEARCH_TARGET_ROWS
+[21:39:50] State -> HARVEST_ROW
+[21:39:50] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:39:51] State -> SEARCH_TARGET_ROWS
+[21:39:51] State -> HARVEST_ROW
+[21:39:51] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:39:52] State -> SEARCH_TARGET_ROWS
+[21:39:53] State -> HARVEST_ROW
+[21:39:53] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:39:54] State -> SEARCH_TARGET_ROWS
+[21:39:54] State -> HARVEST_ROW
+[21:39:54] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:39:55] State -> SEARCH_TARGET_ROWS
+[21:39:55] State -> HARVEST_ROW
+[21:39:55] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:39:56] State -> SEARCH_TARGET_ROWS
+[21:39:57] State -> HARVEST_ROW
+[21:39:57] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:39:58] State -> SEARCH_TARGET_ROWS
+[21:39:58] State -> HARVEST_ROW
+[21:39:58] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:39:59] State -> SEARCH_TARGET_ROWS
+[21:39:59] State -> HARVEST_ROW
+[21:39:59] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:40:00] State -> SEARCH_TARGET_ROWS
+[21:40:01] State -> HARVEST_ROW
+[21:40:01] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:02] State -> SEARCH_TARGET_ROWS
+[21:40:02] State -> HARVEST_ROW
+[21:40:02] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:03] State -> SEARCH_TARGET_ROWS
+[21:40:03] State -> HARVEST_ROW
+[21:40:03] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:04] State -> SEARCH_TARGET_ROWS
+[21:40:05] State -> HARVEST_ROW
+[21:40:05] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:06] State -> SEARCH_TARGET_ROWS
+[21:40:06] State -> HARVEST_ROW
+[21:40:06] Harvest 'coconut' tai button (439, 152) (label_score=0.894, button_score=0.922)
+[21:40:07] State -> SEARCH_TARGET_ROWS
+[21:40:07] State -> HARVEST_ROW
+[21:40:07] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:08] State -> SEARCH_TARGET_ROWS
+[21:40:09] State -> HARVEST_ROW
+[21:40:09] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:10] State -> SEARCH_TARGET_ROWS
+[21:40:10] State -> HARVEST_ROW
+[21:40:10] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:40:11] State -> SEARCH_TARGET_ROWS
+[21:40:12] State -> HARVEST_ROW
+[21:40:12] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:12] State -> SEARCH_TARGET_ROWS
+[21:40:13] State -> HARVEST_ROW
+[21:40:13] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:40:14] State -> SEARCH_TARGET_ROWS
+[21:40:14] State -> HARVEST_ROW
+[21:40:14] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:15] State -> SEARCH_TARGET_ROWS
+[21:40:15] State -> HARVEST_ROW
+[21:40:15] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:40:16] State -> SEARCH_TARGET_ROWS
+[21:40:17] State -> HARVEST_ROW
+[21:40:17] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:18] State -> SEARCH_TARGET_ROWS
+[21:40:18] State -> HARVEST_ROW
+[21:40:18] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:40:19] State -> SEARCH_TARGET_ROWS
+[21:40:19] State -> HARVEST_ROW
+[21:40:19] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.925)
+[21:40:20] State -> SEARCH_TARGET_ROWS
+[21:40:21] State -> HARVEST_ROW
+[21:40:21] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:40:21] State -> SEARCH_TARGET_ROWS
+[21:40:22] State -> HARVEST_ROW
+[21:40:22] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:23] State -> SEARCH_TARGET_ROWS
+[21:40:23] State -> HARVEST_ROW
+[21:40:23] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:40:24] State -> SEARCH_TARGET_ROWS
+[21:40:25] State -> HARVEST_ROW
+[21:40:25] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:26] State -> SEARCH_TARGET_ROWS
+[21:40:26] State -> HARVEST_ROW
+[21:40:26] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:40:27] State -> SEARCH_TARGET_ROWS
+[21:40:27] State -> HARVEST_ROW
+[21:40:27] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:28] State -> SEARCH_TARGET_ROWS
+[21:40:29] State -> HARVEST_ROW
+[21:40:29] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:40:30] State -> SEARCH_TARGET_ROWS
+[21:40:30] State -> HARVEST_ROW
+[21:40:30] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:31] State -> SEARCH_TARGET_ROWS
+[21:40:32] State -> HARVEST_ROW
+[21:40:32] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:40:33] State -> SEARCH_TARGET_ROWS
+[21:40:33] State -> HARVEST_ROW
+[21:40:33] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:34] State -> SEARCH_TARGET_ROWS
+[21:40:35] State -> HARVEST_ROW
+[21:40:35] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:36] State -> SEARCH_TARGET_ROWS
+[21:40:36] State -> HARVEST_ROW
+[21:40:36] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:37] State -> SEARCH_TARGET_ROWS
+[21:40:38] State -> HARVEST_ROW
+[21:40:38] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:39] State -> SEARCH_TARGET_ROWS
+[21:40:39] State -> HARVEST_ROW
+[21:40:39] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:40] State -> SEARCH_TARGET_ROWS
+[21:40:41] State -> HARVEST_ROW
+[21:40:41] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:42] State -> SEARCH_TARGET_ROWS
+[21:40:42] State -> HARVEST_ROW
+[21:40:42] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:43] State -> SEARCH_TARGET_ROWS
+[21:40:44] State -> HARVEST_ROW
+[21:40:44] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:45] State -> SEARCH_TARGET_ROWS
+[21:40:45] State -> HARVEST_ROW
+[21:40:45] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:40:46] State -> SEARCH_TARGET_ROWS
+[21:40:47] State -> HARVEST_ROW
+[21:40:47] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:48] State -> SEARCH_TARGET_ROWS
+[21:40:48] State -> HARVEST_ROW
+[21:40:48] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
+[21:40:49] State -> SEARCH_TARGET_ROWS
+[21:40:49] State -> HARVEST_ROW
+[21:40:49] Harvest 'coconut' tai button (213, 152) (label_score=0.994, button_score=0.927)
+[21:40:50] State -> SEARCH_TARGET_ROWS
+[21:40:51] State -> HARVEST_ROW
+[21:40:51] Harvest 'coconut' tai button (439, 152) (label_score=0.992, button_score=0.922)
