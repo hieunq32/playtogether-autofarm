@@ -1,0 +1,25 @@
+[21:45:21] Bot da chay. Nhan ESC de dung an toan.
+[21:45:21] Da gan cua so BlueStacks: 'BlueStacks App Player' tai (1392, 720) kich thuoc 528x312
+[21:45:21] Phat hien dang o giua quy trinh ban. Tiep tuc tu man hinh hien tai.
+[21:45:21] Da o san hoi thoai NPC trong quy trinh ban.
+[21:45:21] State -> ADVANCE_SELL_NPC_DIALOG
+[21:45:22] Clicked 'npc_dialog_continue' bang template+offset tai (275, 265).
+[21:45:22] State -> OPEN_SELL_PRODUCE_OPTION
+[21:45:23] Da o san cua hang ban voi nut gio hang trang.
+[21:45:23] State -> OPEN_SELL_CART
+[21:45:25] Clicked 'sell_cart' bang template tai (246, 92).
+[21:45:25] State -> ADVANCE_SELL_NPC_DIALOG
+[21:45:26] Da o san popup chon 'Ban nong san'.
+[21:45:26] State -> OPEN_SELL_PRODUCE_OPTION
+[21:45:27] Clicked 'sell_produce_option' bang template tai (404, 185).
+[21:45:27] State -> SELL_AUTO_SELECT
+[21:45:28] Clicked 'sell_auto_select' bang template tai (336, 289).
+[21:45:30] Sau buoc 'Chon tu dong' khong xuat hien nut xanh so tien. Xem nhu khong con nong san de ban.
+[21:45:30] State -> SELL_CLOSE_SCREEN
+[21:45:32] Clicked 'sell_screen_close' bang template tai (470, 49).
+[21:45:32] State -> SELL_DISMISS_END_DIALOG
+[21:45:33] Clicked 'npc_dialog_continue' bang template+offset tai (275, 265).
+[21:45:34] Clicked 'npc_dialog_continue' bang template+offset tai (275, 265).
+[21:45:36] Da thoat khoi popup ban nong san.
+[21:45:36] State -> SESSION_DONE
+[21:45:36] Hoan tat quy trinh tu dong.

@@ -64,6 +64,9 @@ class BotContext:
     scroll_attempts: int = 0
     no_match_search_attempts: int = 0
     session_harvest_count: int = 0
+    restart_harvest_immediately: bool = False
+    sell_flow_active: bool = False
+    startup_flow_bootstrapped: bool = False
 
 
 def set_state(context: BotContext, new_state: BotState) -> None:
@@ -229,6 +232,8 @@ def reset_session(context: BotContext) -> None:
     context.no_match_search_attempts = 0
     context.state_attempts = 0
     context.session_harvest_count = 0
+    context.restart_harvest_immediately = False
+    context.sell_flow_active = False
 
 
 def schedule_next_check(context: BotContext, reason: str) -> None:
@@ -360,39 +365,33 @@ def sync_state_from_visible_screen(context: BotContext, frame) -> bool:
         BotState.SELL_DISMISS_END_DIALOG,
     }
 
-    if is_sell_success_ok_visible(context, frame):
+    should_sync_sell = context.sell_flow_active or context.state in sell_states
+
+    if should_sync_sell and is_sell_success_ok_visible(context, frame):
         if context.state != BotState.SELL_SUCCESS_OK:
             log("Da o san popup thong bao ban hang thanh cong.")
             set_state(context, BotState.SELL_SUCCESS_OK)
             return True
         return False
 
-    if is_sell_final_confirm_visible(context, frame):
+    if should_sync_sell and is_sell_final_confirm_visible(context, frame):
         if context.state != BotState.SELL_FINAL_CONFIRM:
             log("Da o san popup xac nhan cuoi cung cua buoc ban.")
             set_state(context, BotState.SELL_FINAL_CONFIRM)
             return True
         return False
 
-    if is_sell_popup_submit_visible(context, frame):
+    if should_sync_sell and is_sell_popup_submit_visible(context, frame):
         if context.state != BotState.SELL_CONFIRM_POPUP_SUBMIT:
             log("Da o san popup xac nhan ban hang voi nut xanh so tien.")
             set_state(context, BotState.SELL_CONFIRM_POPUP_SUBMIT)
             return True
         return False
 
-    if context.state == BotState.SELL_CLOSE_SCREEN and is_sell_screen_close_visible(context, frame):
+    if should_sync_sell and context.state == BotState.SELL_CLOSE_SCREEN and is_sell_screen_close_visible(context, frame):
         return False
 
-    if is_sell_auto_select_visible(context, frame):
-        if context.state not in {BotState.SELL_AUTO_SELECT, BotState.SELL_SUBMIT_SELECTION}:
-            log("Da o san giao dien 'Ban nong san'.")
-            set_state(context, BotState.SELL_AUTO_SELECT)
-            return True
-        if context.state == BotState.SELL_AUTO_SELECT:
-            return False
-
-    if is_sell_bottom_submit_visible(context, frame):
+    if should_sync_sell and is_sell_bottom_submit_visible(context, frame):
         if context.state not in {BotState.SELL_SUBMIT_SELECTION, BotState.SELL_AUTO_SELECT}:
             log("Da co nut xanh xac nhan ban o giao dien 'Ban nong san'.")
             set_state(context, BotState.SELL_SUBMIT_SELECTION)
@@ -400,14 +399,22 @@ def sync_state_from_visible_screen(context: BotContext, frame) -> bool:
         if context.state == BotState.SELL_SUBMIT_SELECTION:
             return False
 
-    if is_sell_produce_option_visible(context, frame):
+    if should_sync_sell and is_sell_auto_select_visible(context, frame):
+        if context.state not in {BotState.SELL_AUTO_SELECT, BotState.SELL_SUBMIT_SELECTION}:
+            log("Da o san giao dien 'Ban nong san'.")
+            set_state(context, BotState.SELL_AUTO_SELECT)
+            return True
+        if context.state == BotState.SELL_AUTO_SELECT:
+            return False
+
+    if should_sync_sell and is_sell_produce_option_visible(context, frame):
         if context.state != BotState.OPEN_SELL_PRODUCE_OPTION:
             log("Da o san popup chon 'Ban nong san'.")
             set_state(context, BotState.OPEN_SELL_PRODUCE_OPTION)
             return True
         return False
 
-    if is_npc_dialog_visible(context, frame):
+    if should_sync_sell and is_npc_dialog_visible(context, frame):
         target_state = (
             BotState.SELL_DISMISS_END_DIALOG
             if context.state in {BotState.SELL_CLOSE_SCREEN, BotState.SELL_DISMISS_END_DIALOG}
@@ -419,7 +426,7 @@ def sync_state_from_visible_screen(context: BotContext, frame) -> bool:
             return True
         return False
 
-    if context.state in sell_states:
+    if should_sync_sell:
 
         if is_sell_cart_visible(context, frame):
             if context.state == BotState.SELL_DISMISS_END_DIALOG:
@@ -460,6 +467,30 @@ def sync_state_from_visible_screen(context: BotContext, frame) -> bool:
             set_state(context, BotState.OPEN_AVAILABLE_TO_HARVEST)
             return True
 
+    return False
+
+
+def bootstrap_visible_flow_on_start(context: BotContext) -> bool:
+    if context.startup_flow_bootstrapped:
+        return False
+
+    context.startup_flow_bootstrapped = True
+    frame = capture_frame(context)
+    if any(
+        (
+            is_sell_success_ok_visible(context, frame),
+            is_sell_final_confirm_visible(context, frame),
+            is_sell_popup_submit_visible(context, frame),
+            is_sell_auto_select_visible(context, frame),
+            is_sell_bottom_submit_visible(context, frame),
+            is_sell_produce_option_visible(context, frame),
+            is_npc_dialog_visible(context, frame),
+            is_sell_cart_visible(context, frame),
+        )
+    ):
+        log("Phat hien dang o giua quy trinh ban. Tiep tuc tu man hinh hien tai.")
+        context.sell_flow_active = True
+        return sync_state_from_visible_screen(context, frame)
     return False
 
 
@@ -558,6 +589,7 @@ def handle_bag_full(context: BotContext) -> None:
     workflow_config = context.config.get("workflow", {})
     if workflow_config.get("sell_when_bag_full", True):
         log("Bat dau quy trinh ban nong san sau khi day tui.")
+        context.sell_flow_active = True
         set_state(context, BotState.OPEN_SELL_ENTRY)
         return
 
@@ -574,9 +606,47 @@ def handle_sell_auto_select(context: BotContext) -> None:
         sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
         return
 
+    if is_sell_bottom_submit_visible(context, frame):
+        log("Danh sach da co san gia ban. Bo qua 'Chon tu dong' va chuyen sang nut xanh so tien.")
+        click_sell_bottom_submit_and_route(context, frame)
+        return
+
     if click_named_button(context, "sell_auto_select", frame):
+        sleep_random(
+            context.config["timing"].get(
+                "sell_immediate_submit_delay_seconds",
+                [0.25, 0.45],
+            )
+        )
+        validation_frame = capture_frame(context)
+
+        if sync_state_from_visible_screen(context, validation_frame):
+            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+            return
+
+        if is_sell_bottom_submit_visible(context, validation_frame):
+            log("Da co nut xanh so tien sau buoc 'Chon tu dong'. Bam ngay nut xanh de ban.")
+            click_sell_bottom_submit_and_route(context, validation_frame)
+            return
+
+        sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+        validation_frame = capture_frame(context)
+        if sync_state_from_visible_screen(context, validation_frame):
+            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+            return
+
+        if is_sell_bottom_submit_visible(context, validation_frame):
+            log("Nut xanh so tien xuat hien sau mot nhip doi them.")
+            click_sell_bottom_submit_and_route(context, validation_frame)
+            return
+
+        if is_sell_screen_close_visible(context, validation_frame) and is_sell_auto_select_visible(context, validation_frame):
+            log("Sau buoc 'Chon tu dong' khong xuat hien nut xanh so tien. Xem nhu khong con nong san de ban.")
+            set_state(context, BotState.SELL_CLOSE_SCREEN)
+            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+            return
+
         set_state(context, BotState.SELL_SUBMIT_SELECTION)
-        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
         return
 
     context.state_attempts += 1
@@ -588,25 +658,43 @@ def handle_sell_auto_select(context: BotContext) -> None:
         sleep_random(context.config["timing"]["button_retry_delay_seconds"])
 
 
+def click_sell_bottom_submit_and_route(context: BotContext, frame=None) -> bool:
+    if frame is None:
+        frame = capture_frame(context)
+
+    if not click_named_button(context, "sell_bottom_submit", frame):
+        return False
+
+    sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+    validation_frame = capture_frame(context)
+
+    if sync_state_from_visible_screen(context, validation_frame):
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return True
+
+    if is_sell_screen_close_visible(context, validation_frame) and not any(
+        (
+            is_sell_popup_submit_visible(context, validation_frame),
+            is_sell_final_confirm_visible(context, validation_frame),
+            is_sell_success_ok_visible(context, validation_frame),
+        )
+    ):
+        log("Khong hien popup sau khi bam nut xanh so tien. Xem nhu da ban het nong san.")
+        set_state(context, BotState.SELL_CLOSE_SCREEN)
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return True
+
+    set_state(context, BotState.SELL_CONFIRM_POPUP_SUBMIT)
+    return True
+
+
 def handle_sell_submit_selection(context: BotContext) -> None:
     frame = capture_frame(context)
     if sync_state_from_visible_screen(context, frame):
         sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
         return
 
-    if (
-        is_sell_auto_select_visible(context, frame)
-        and not is_sell_bottom_submit_visible(context, frame)
-        and is_sell_screen_close_visible(context, frame)
-    ):
-        log("Khong con nong san duoc chon de ban. Dong giao dien 'Ban nong san'.")
-        set_state(context, BotState.SELL_CLOSE_SCREEN)
-        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
-        return
-
-    if click_named_button(context, "sell_bottom_submit", frame):
-        set_state(context, BotState.SELL_CONFIRM_POPUP_SUBMIT)
-        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+    if click_sell_bottom_submit_and_route(context, frame):
         return
 
     context.state_attempts += 1
@@ -622,19 +710,38 @@ def handle_sell_end_dialog(context: BotContext) -> None:
     frame = capture_frame(context)
     if is_sell_cart_visible(context, frame):
         log("Da thoat khoi popup ban nong san.")
+        context.restart_harvest_immediately = True
+        set_state(context, BotState.SESSION_DONE)
+        return
+
+    if not any(
+        (
+            is_npc_dialog_visible(context, frame),
+            is_sell_produce_option_visible(context, frame),
+            is_sell_auto_select_visible(context, frame),
+            is_sell_bottom_submit_visible(context, frame),
+            is_sell_popup_submit_visible(context, frame),
+            is_sell_final_confirm_visible(context, frame),
+            is_sell_success_ok_visible(context, frame),
+            is_sell_screen_close_visible(context, frame),
+        )
+    ):
+        log("Da thoat khoi quy trinh ban va quay lai man hinh chinh.")
+        context.restart_harvest_immediately = True
         set_state(context, BotState.SESSION_DONE)
         return
 
     if is_npc_dialog_visible(context, frame):
         if click_named_button(context, "npc_dialog_continue", frame):
             sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
-            set_state(context, BotState.SESSION_DONE)
+            set_state(context, BotState.SELL_DISMISS_END_DIALOG)
             return
 
     context.state_attempts += 1
     max_retries = int(context.config["navigation"]["max_button_search_retries"])
     if context.state_attempts >= max_retries:
         log("Khong dong duoc hoi thoai ket thuc sau khi ban.")
+        context.restart_harvest_immediately = True
         set_state(context, BotState.SESSION_DONE)
     else:
         sleep_random(context.config["timing"]["button_retry_delay_seconds"])
@@ -654,6 +761,10 @@ def run_state_machine(context: BotContext) -> None:
 
         if not refresh_game_window(context):
             sleep_random(context.config["timing"]["window_not_found_delay_seconds"])
+            continue
+
+        if bootstrap_visible_flow_on_start(context):
+            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
             continue
 
         if context.state == BotState.WAIT_FOR_CHECK:
@@ -777,6 +888,16 @@ def run_state_machine(context: BotContext) -> None:
             log("Hoan tat quy trinh tu dong.")
             if context.config.get("workflow", {}).get("stop_after_sell", True):
                 break
+            if context.restart_harvest_immediately:
+                context.sell_flow_active = False
+                delay_range = context.config.get("workflow", {}).get(
+                    "restart_after_sell_delay_seconds",
+                    [0.8, 1.6],
+                )
+                sleep_random(delay_range)
+                log("Ban xong. Bat dau lai vong thu hoach moi ngay.")
+                begin_harvest_session(context)
+                continue
             finish_harvest_session(context, "Hoan tat session")
 
 

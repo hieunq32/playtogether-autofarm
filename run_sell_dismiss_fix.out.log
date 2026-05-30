@@ -1,0 +1,29 @@
+[21:44:49] Bot da chay. Nhan ESC de dung an toan.
+[21:44:49] Da gan cua so BlueStacks: 'BlueStacks App Player' tai (1392, 720) kich thuoc 528x312
+[21:44:50] Phat hien dang o giua quy trinh ban. Tiep tuc tu man hinh hien tai.
+[21:44:50] Da o san hoi thoai NPC trong quy trinh ban.
+[21:44:50] State -> ADVANCE_SELL_NPC_DIALOG
+[21:44:51] Clicked 'npc_dialog_continue' bang template+offset tai (275, 265).
+[21:44:51] State -> OPEN_SELL_PRODUCE_OPTION
+[21:44:53] Da o san cua hang ban voi nut gio hang trang.
+[21:44:53] State -> OPEN_SELL_CART
+[21:44:54] Clicked 'sell_cart' bang template tai (246, 92).
+[21:44:54] State -> ADVANCE_SELL_NPC_DIALOG
+[21:44:55] Da o san popup chon 'Ban nong san'.
+[21:44:55] State -> OPEN_SELL_PRODUCE_OPTION
+[21:44:57] Clicked 'sell_produce_option' bang template tai (404, 185).
+[21:44:57] State -> SELL_AUTO_SELECT
+[21:44:58] Clicked 'sell_auto_select' bang template tai (336, 289).
+[21:44:59] Da co nut xanh so tien sau buoc 'Chon tu dong'. Bam ngay nut xanh de ban.
+[21:44:59] Clicked 'sell_bottom_submit' bang template tai (427, 286).
+[21:45:01] Da o san popup xac nhan ban hang voi nut xanh so tien.
+[21:45:01] State -> SELL_CONFIRM_POPUP_SUBMIT
+[21:45:02] Clicked 'sell_popup_submit' bang template+offset tai (249, 261).
+[21:45:02] State -> SELL_FINAL_CONFIRM
+[21:45:03] Clicked 'sell_final_confirm' bang template tai (314, 248).
+[21:45:04] State -> SELL_SUCCESS_OK
+[21:45:05] Clicked 'sell_success_ok' bang template tai (249, 246).
+[21:45:05] State -> SELL_CLOSE_SCREEN
+[21:45:07] Clicked 'sell_screen_close' bang template tai (470, 49).
+[21:45:07] State -> SELL_DISMISS_END_DIALOG
+[21:45:08] Clicked 'npc_dialog_continue' bang template+offset tai (275, 265).

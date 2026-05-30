@@ -1,0 +1,26 @@
+[07:25:43] Bot da chay. Nhan ESC de dung an toan.
+[07:25:43] Da gan cua so BlueStacks: 'BlueStacks App Player' tai (1391, 720) kich thuoc 528x312
+[07:25:43] Phat hien dang o giua quy trinh ban. Tiep tuc tu man hinh hien tai.
+[07:25:43] Da o san giao dien 'Ban nong san'.
+[07:25:43] State -> SELL_AUTO_SELECT
+[07:25:44] Clicked 'sell_auto_select' bang template tai (336, 289).
+[07:25:48] Sau buoc 'Chon tu dong' khong xuat hien nut xanh so tien. Xem nhu khong con nong san de ban.
+[07:25:48] State -> SELL_CLOSE_SCREEN
+[07:25:49] Clicked 'sell_screen_close' bang template tai (470, 49).
+[07:25:49] State -> SELL_DISMISS_END_DIALOG
+[07:25:50] Clicked 'npc_dialog_continue' bang template+offset tai (260, 273).
+[07:25:52] Clicked 'npc_dialog_continue' bang template+offset tai (260, 273).
+[07:25:53] Da thoat khoi quy trinh ban va quay lai man hinh chinh.
+[07:25:53] State -> SESSION_DONE
+[07:25:53] Hoan tat quy trinh tu dong.
+[07:25:54] Ban xong. Bat dau lai vong thu hoach moi ngay.
+[07:25:54] State -> OPEN_HOME
+[07:25:55] Clicked 'open_home' bang fallback+offset tai (256, 297).
+[07:25:55] State -> OPEN_AVAILABLE_TO_HARVEST
+[07:25:56] Bo qua fallback cho 'available_to_harvest' vi allow_fallback_clicks=false.
+[07:25:57] Bo qua fallback cho 'available_to_harvest' vi allow_fallback_clicks=false.
+[07:25:59] Bo qua fallback cho 'available_to_harvest' vi allow_fallback_clicks=false.
+[07:26:00] Bo qua fallback cho 'available_to_harvest' vi allow_fallback_clicks=false.
+[07:26:01] Bo qua fallback cho 'available_to_harvest' vi allow_fallback_clicks=false.
+[07:26:01] Khong thay 'Co the thu hoach'. Co the chua den gio thu hoach. Lan kiem tra tiep theo sau 146.5 giay.
+[07:26:01] State -> WAIT_FOR_CHECK

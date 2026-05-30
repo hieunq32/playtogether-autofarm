@@ -1,0 +1,24 @@
+[07:21:41] Bot da chay. Nhan ESC de dung an toan.
+[07:21:41] Da gan cua so BlueStacks: 'BlueStacks App Player' tai (1391, 720) kich thuoc 528x312
+[07:21:41] Phat hien dang o giua quy trinh ban. Tiep tuc tu man hinh hien tai.
+[07:21:41] Da o san giao dien 'Ban nong san'.
+[07:21:41] State -> SELL_AUTO_SELECT
+[07:21:42] Clicked 'sell_auto_select' bang template tai (336, 289).
+[07:21:46] Sau buoc 'Chon tu dong' khong xuat hien nut xanh so tien. Xem nhu khong con nong san de ban.
+[07:21:46] State -> SELL_CLOSE_SCREEN
+[07:21:47] Clicked 'sell_screen_close' bang template tai (470, 49).
+[07:21:47] State -> SELL_DISMISS_END_DIALOG
+[07:21:48] Clicked 'npc_dialog_continue' bang template+offset tai (260, 273).
+[07:21:50] Clicked 'npc_dialog_continue' bang template+offset tai (260, 273).
+[07:21:51] Da thoat khoi quy trinh ban va quay lai man hinh chinh.
+[07:21:51] State -> SESSION_DONE
+[07:21:51] Hoan tat quy trinh tu dong.
+[07:21:52] Ban xong. Bat dau lai vong thu hoach moi ngay.
+[07:21:52] State -> OPEN_HOME
+[07:21:53] Bo qua fallback cho 'open_home' vi allow_fallback_clicks=false.
+[07:21:54] Bo qua fallback cho 'open_home' vi allow_fallback_clicks=false.
+[07:21:55] Bo qua fallback cho 'open_home' vi allow_fallback_clicks=false.
+[07:21:56] Bo qua fallback cho 'open_home' vi allow_fallback_clicks=false.
+[07:21:58] Bo qua fallback cho 'open_home' vi allow_fallback_clicks=false.
+[07:21:58] Khong mo duoc 'Nha ta'. Lan kiem tra tiep theo sau 133.5 giay.
+[07:21:58] State -> WAIT_FOR_CHECK

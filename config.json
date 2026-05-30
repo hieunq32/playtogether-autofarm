@@ -47,6 +47,14 @@
       0.8,
       1.2
     ],
+    "sell_auto_select_settle_seconds": [
+      1.6,
+      2.0
+    ],
+    "sell_immediate_submit_delay_seconds": [
+      0.25,
+      0.45
+    ],
     "button_retry_delay_seconds": [
       0.6,
       1.0
@@ -131,36 +139,39 @@
     "max_button_search_retries": 5,
     "buttons": {
       "open_home": {
-        "template": "templates/ui/home_button.png",
+        "template": "templates/ui/home_icon_shop_b.png",
         "template_candidates": [
-          "templates/ui/home_button_alt.png"
+          "templates/ui/home_button_live_gameplay_b.png",
+          "templates/ui/home_icon_shop_a.png"
         ],
-        "threshold": 0.84,
+        "threshold": 0.82,
         "search_region_ratio": [
-          0.58,
-          0.02,
-          0.86,
+          0.55,
+          0.0,
+          0.8,
           0.32
         ],
         "click_offset": [
-          -8,
-          10
+          0,
+          0
         ],
         "fallback_click_ratio": [
           0.5,
           0.92
-        ]
+        ],
+        "force_allow_fallback": false
       },
       "available_to_harvest": {
-        "template": "templates/ui/available_to_harvest_button.png",
+        "template": "templates/ui/available_current_icon_b.png",
         "template_candidates": [
-          "available_guess_text_icon2.png"
+          "templates/ui/available_current_icon_a.png",
+          "templates/ui/available_current_icon_c.png"
         ],
-        "threshold": 0.82,
+        "threshold": 0.88,
         "search_region_ratio": [
-          0.02,
-          0.24,
-          0.36,
+          0.0,
+          0.22,
+          0.28,
           0.72
         ],
         "fallback_click_ratio": [
@@ -210,60 +221,64 @@
         "force_allow_fallback": true
       },
       "sell_entry": {
-        "template": "templates/ui/sell_entry_button.png",
-        "threshold": 0.86,
+        "template": "templates/ui/sell_entry_red_ban_button.png",
+        "template_candidates": [
+          "templates/ui/sell_entry_red_ban_wide.png"
+        ],
+        "threshold": 0.88,
         "search_region_ratio": [
-          0.74,
-          0.16,
-          0.92,
-          0.43
+          0.72,
+          0.22,
+          0.86,
+          0.44
         ],
         "fallback_click_ratio": [
           0.807,
           0.346
         ],
-        "force_allow_fallback": true
+        "force_allow_fallback": false
       },
       "sell_cart": {
-        "template": "templates/ui/sell_cart_button.png",
-        "template_candidates": [
-          "sell_cart_button_live.png"
-        ],
-        "threshold": 0.84,
+        "template": "templates/ui/sell_cart_manseok_basket.png",
+        "template_candidates": [],
+        "threshold": 0.88,
         "search_region_ratio": [
-          0.35,
+          0.36,
           0.18,
-          0.52,
-          0.46
+          0.56,
+          0.42
         ],
         "fallback_click_ratio": [
           0.432,
           0.327
         ],
-        "force_allow_fallback": true
+        "force_allow_fallback": false
       },
       "npc_dialog_continue": {
-        "template": "templates/ui/npc_dialog_name.png",
-        "threshold": 0.88,
+        "template": "templates/ui/npc_dialog_manseok_name.png",
+        "template_candidates": [
+          "templates/ui/npc_dialog_manseok_continue.png"
+        ],
+        "threshold": 0.9,
         "search_region_ratio": [
-          0.34,
-          0.22,
-          0.58,
-          0.42
+          0.18,
+          0.68,
+          0.86,
+          1.0
         ],
         "click_offset": [
-          14,
-          168
+          120,
+          20
         ],
         "fallback_click_ratio": [
           0.492,
           0.872
         ],
-        "force_allow_fallback": true
+        "force_allow_fallback": false
       },
       "sell_produce_option": {
-        "template": "templates/ui/sell_produce_option_button.png",
-        "threshold": 0.88,
+        "template": "templates/ui/sell_produce_option_manseok.png",
+        "threshold": 0.86,
         "search_region_ratio": [
           0.62,
           0.52,
@@ -293,6 +308,10 @@
       },
       "sell_bottom_submit": {
         "template": "templates/ui/sell_bottom_submit_coin.png",
+        "template_candidates": [
+          "templates/ui/sell_bottom_submit_coin_alt.png",
+          "templates/ui/sell_bottom_submit_coin_regionfit.png"
+        ],
         "threshold": 0.84,
         "search_region_ratio": [
           0.72,
@@ -301,14 +320,14 @@
           1.0
         ],
         "click_offset": [
-          12,
+          0,
           0
         ],
         "fallback_click_ratio": [
-          0.779,
-          0.926
+          0.809,
+          0.917
         ],
-        "force_allow_fallback": false
+        "force_allow_fallback": true
       },
       "sell_popup_submit": {
         "template": "templates/ui/sell_popup_submit_coin.png",
@@ -403,6 +422,10 @@
   "workflow": {
     "stop_when_bag_full": false,
     "sell_when_bag_full": true,
-    "stop_after_sell": false
+    "stop_after_sell": false,
+    "restart_after_sell_delay_seconds": [
+      0.8,
+      1.6
+    ]
   }
 }

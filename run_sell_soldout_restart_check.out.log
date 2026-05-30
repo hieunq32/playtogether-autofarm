@@ -1,0 +1,34 @@
+[21:46:16] Bot da chay. Nhan ESC de dung an toan.
+[21:46:16] Da gan cua so BlueStacks: 'BlueStacks App Player' tai (1392, 720) kich thuoc 528x312
+[21:46:17] Phat hien dang o giua quy trinh ban. Tiep tuc tu man hinh hien tai.
+[21:46:17] Da o san cua hang ban voi nut gio hang trang.
+[21:46:17] State -> OPEN_SELL_CART
+[21:46:18] Clicked 'sell_cart' bang template tai (246, 92).
+[21:46:18] State -> ADVANCE_SELL_NPC_DIALOG
+[21:46:19] Clicked 'npc_dialog_continue' bang template+offset tai (275, 265).
+[21:46:20] State -> OPEN_SELL_PRODUCE_OPTION
+[21:46:21] Clicked 'sell_produce_option' bang template tai (404, 185).
+[21:46:21] State -> SELL_AUTO_SELECT
+[21:46:22] Clicked 'sell_auto_select' bang template tai (336, 289).
+[21:46:24] Sau buoc 'Chon tu dong' khong xuat hien nut xanh so tien. Xem nhu khong con nong san de ban.
+[21:46:24] State -> SELL_CLOSE_SCREEN
+[21:46:25] Clicked 'sell_screen_close' bang template tai (470, 49).
+[21:46:26] State -> SELL_DISMISS_END_DIALOG
+[21:46:27] Clicked 'npc_dialog_continue' bang template+offset tai (275, 265).
+[21:46:28] Clicked 'npc_dialog_continue' bang template+offset tai (275, 265).
+[21:46:30] Da thoat khoi popup ban nong san.
+[21:46:30] State -> SESSION_DONE
+[21:46:30] Hoan tat quy trinh tu dong.
+[21:46:31] Ban xong. Bat dau lai vong thu hoach moi ngay.
+[21:46:31] State -> OPEN_HOME
+[21:46:31] Clicked 'open_home' bang template tai (355, 64).
+[21:46:31] State -> OPEN_AVAILABLE_TO_HARVEST
+[21:46:33] Clicked 'available_to_harvest' bang template tai (78, 164).
+[21:46:33] State -> OPEN_HARVEST_POPUP
+[21:46:35] Clicked 'harvest_fruit_popup' bang template tai (248, 136).
+[21:46:35] State -> SEARCH_TARGET_ROWS
+[21:46:36] State -> HARVEST_ROW
+[21:46:36] Harvest 'starfruit' tai button (213, 105) (label_score=0.914, button_score=0.919)
+[21:46:37] State -> SEARCH_TARGET_ROWS
+[21:46:37] State -> HARVEST_ROW
+[21:46:37] Harvest 'starfruit' tai button (439, 105) (label_score=0.862, button_score=0.915)
