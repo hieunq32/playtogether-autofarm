@@ -620,24 +620,14 @@ def handle_sell_auto_select(context: BotContext) -> None:
         )
         validation_frame = capture_frame(context)
 
-        if sync_state_from_visible_screen(context, validation_frame):
-            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
-            return
-
-        if is_sell_bottom_submit_visible(context, validation_frame):
-            log("Da co nut xanh so tien sau buoc 'Chon tu dong'. Bam ngay nut xanh de ban.")
-            click_sell_bottom_submit_and_route(context, validation_frame)
+        log("Da bam 'Chon tu dong'. Bam ngay nut xanh so tien ben canh de ban.")
+        if click_sell_bottom_submit_and_route(context, validation_frame):
             return
 
         sleep_random(context.config["timing"]["button_retry_delay_seconds"])
         validation_frame = capture_frame(context)
-        if sync_state_from_visible_screen(context, validation_frame):
-            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
-            return
-
-        if is_sell_bottom_submit_visible(context, validation_frame):
-            log("Nut xanh so tien xuat hien sau mot nhip doi them.")
-            click_sell_bottom_submit_and_route(context, validation_frame)
+        log("Thu lai nut xanh so tien sau mot nhip doi them.")
+        if click_sell_bottom_submit_and_route(context, validation_frame):
             return
 
         if is_sell_screen_close_visible(context, validation_frame) and is_sell_auto_select_visible(context, validation_frame):
