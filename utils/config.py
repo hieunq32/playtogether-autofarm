@@ -15,6 +15,14 @@ def _resolve_template_paths(config: dict, project_dir: Path) -> None:
                 for value in template.get("template_candidates", [])
             ]
 
+    for template in config.get("blocked_fruit_templates", []):
+        template["path"] = _resolve_path(project_dir, template["path"])
+        if "template_candidates" in template:
+            template["template_candidates"] = [
+                _resolve_path(project_dir, value)
+                for value in template.get("template_candidates", [])
+            ]
+
     buttons = config.get("navigation", {}).get("buttons", {})
     for button_config in buttons.values():
         template_path = button_config.get("template")

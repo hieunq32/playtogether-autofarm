@@ -268,6 +268,7 @@ def handle_navigation_step(
     failure_reason: str,
     already_success_predicate=None,
     session_done_if_exhausted: bool = True,
+    retry_forever: bool = False,
 ) -> None:
     frame = capture_frame(context)
     if sync_state_from_visible_screen(context, frame):
@@ -287,6 +288,11 @@ def handle_navigation_step(
     context.state_attempts += 1
     max_retries = int(context.config["navigation"]["max_button_search_retries"])
     if context.state_attempts >= max_retries:
+        if retry_forever:
+            log(f"Chua tim thay '{action_name}'. Tiep tuc scan thay vi ket thuc bot.")
+            context.state_attempts = 0
+            sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+            return
         if session_done_if_exhausted:
             finish_harvest_session(context, failure_reason)
         else:
@@ -799,6 +805,7 @@ def run_state_machine(context: BotContext) -> None:
                 failure_reason="Khong mo duoc giao dien ban",
                 already_success_predicate=is_sell_cart_visible,
                 session_done_if_exhausted=False,
+                retry_forever=True,
             )
         elif context.state == BotState.OPEN_SELL_CART:
             handle_navigation_step(

@@ -223,7 +223,9 @@
       "sell_entry": {
         "template": "templates/ui/sell_entry_red_ban_button.png",
         "template_candidates": [
-          "templates/ui/sell_entry_red_ban_wide.png"
+          "templates/ui/sell_entry_red_ban_wide.png",
+          "templates/ui/sell_entry_red_ban_live_current.png",
+          "templates/ui/sell_entry_red_ban_live_current_tight.png"
         ],
         "threshold": 0.88,
         "search_region_ratio": [
