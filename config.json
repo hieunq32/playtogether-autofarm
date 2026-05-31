@@ -149,6 +149,50 @@
       "path": "templates/blocked/ginseng_label.png",
       "threshold": 0.9,
       "enabled": true
+    },
+    {
+      "name": "pumpkin",
+      "display_name": "Bi ngo",
+      "path": "templates/blocked/pumpkin_label.png",
+      "template_candidates": [
+        "templates/blocked/pumpkin_label_alt_left.png",
+        "templates/blocked/pumpkin_label_alt_right.png"
+      ],
+      "threshold": 0.88,
+      "enabled": true
+    },
+    {
+      "name": "watermelon",
+      "display_name": "Dua hau",
+      "path": "templates/blocked/watermelon_label.png",
+      "template_candidates": [
+        "templates/blocked/watermelon_label_alt_left.png",
+        "templates/blocked/watermelon_label_alt_right.png"
+      ],
+      "threshold": 0.88,
+      "enabled": true
+    },
+    {
+      "name": "spinach",
+      "display_name": "Rau chan vit",
+      "path": "templates/blocked/spinach_label.png",
+      "template_candidates": [
+        "templates/blocked/spinach_label_alt_left.png",
+        "templates/blocked/spinach_label_alt_right.png"
+      ],
+      "threshold": 0.88,
+      "enabled": true
+    },
+    {
+      "name": "mushroom",
+      "display_name": "Nam",
+      "path": "templates/blocked/mushroom_label.png",
+      "template_candidates": [
+        "templates/blocked/mushroom_label_alt_left.png",
+        "templates/blocked/mushroom_label_alt_right.png"
+      ],
+      "threshold": 0.88,
+      "enabled": true
     }
   ],
   "navigation": {

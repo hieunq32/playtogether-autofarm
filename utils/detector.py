@@ -223,6 +223,9 @@ class TemplateDetector:
         rows: List[HarvestRowMatch] = []
 
         for button in sorted(button_matches, key=lambda item: (item.top_left[1], item.top_left[0])):
+            if self._is_button_on_blocked_row(button, blocked_matches, row_tolerance):
+                continue
+
             candidates = [
                 label
                 for label in label_matches
@@ -257,6 +260,17 @@ class TemplateDetector:
             )
 
         return rows
+
+    def _is_button_on_blocked_row(
+        self,
+        button: MatchResult,
+        blocked_matches: Sequence[MatchResult],
+        row_tolerance: int,
+    ) -> bool:
+        return any(
+            abs(blocked.top_left[1] - button.top_left[1]) <= row_tolerance
+            for blocked in blocked_matches
+        )
 
     def _is_blocked_row(
         self,
