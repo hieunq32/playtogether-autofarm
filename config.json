@@ -15,6 +15,22 @@
     "blank_frame_retry_count": 2,
     "blank_frame_retry_delay_seconds": 0.2
   },
+  "background": {
+    "enabled": true,
+    "device": "127.0.0.1:5555",
+    "timeout_seconds": 5.0,
+    "adb_screen_size": [
+      1600,
+      900
+    ],
+    "render_region_ratio": [
+      0.0019,
+      0.1058,
+      0.9375,
+      0.9968
+    ],
+    "scroll_distance_pixels": 420
+  },
   "matching": {
     "default_threshold": 0.85,
     "match_distance": 24,

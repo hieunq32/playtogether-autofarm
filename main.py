@@ -5,8 +5,6 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Optional
 
-import cv2
-
 from utils.config import load_config
 from utils.detector import HarvestRowMatch, TemplateDetector
 from utils.geometry import (
@@ -77,6 +75,23 @@ def set_state(context: BotContext, new_state: BotState) -> None:
 
 
 def refresh_game_window(context: BotContext) -> bool:
+    if context.capture.background_active and context.mouse.background_active:
+        if context.window is None:
+            width, height = context.reference_client_size or (528, 312)
+            context.window = GameWindow(
+                hwnd=0,
+                title="BlueStacks ADB background",
+                left=0,
+                top=0,
+                width=width,
+                height=height,
+            )
+            log(
+                "Da gan BlueStacks qua ADB background voi khung logic "
+                f"{width}x{height}. Co the de cua so khac che BlueStacks."
+            )
+        return True
+
     search_interval = context.config["window"].get("search_interval_seconds", 3.0)
     should_refresh = context.window is None or (
         time.monotonic() - context.last_window_refresh >= search_interval
@@ -126,6 +141,8 @@ def capture_frame(context: BotContext):
 
 def ensure_game_window_active(context: BotContext) -> None:
     if context.window is None:
+        return
+    if context.capture.background_active and context.mouse.background_active:
         return
 
     window_config = context.config["window"]
@@ -218,12 +235,6 @@ def click_named_button(context: BotContext, action_name: str, frame=None) -> boo
     log(f"Clicked '{action_name}' bang {source} tai {click_point}.")
     sleep_random(context.config["timing"]["click_delay_seconds"])
     return True
-
-
-def save_runtime_frame(filename: str, frame) -> None:
-    output_path = Path(__file__).resolve().parent / filename
-    cv2.imwrite(str(output_path), frame)
-    log(f"Da luu anh runtime: {output_path.name}")
 
 
 def reset_session(context: BotContext) -> None:
@@ -582,13 +593,10 @@ def handle_scroll_list(context: BotContext) -> None:
 
 def handle_bag_full(context: BotContext) -> None:
     frame = capture_frame(context)
-    save_runtime_frame("bag_full_live_detected.png", frame)
     log("Phat hien thong bao day tui. Thu dong popup bang nut X.")
 
     if click_named_button(context, "close_harvest_popup", frame):
         sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
-        closed_frame = capture_frame(context)
-        save_runtime_frame("after_bag_full_close.png", closed_frame)
     else:
         log("Khong dong duoc popup day tui bang nut X.")
 
@@ -902,8 +910,9 @@ def main() -> None:
     config_path = Path(__file__).resolve().parent / "config.json"
     config = load_config(str(config_path))
     detector = TemplateDetector(config)
-    capture = ScreenCapture()
-    mouse = MouseController(config["input"])
+    background_config = config.get("background", {})
+    capture = ScreenCapture(background_config)
+    mouse = MouseController(config["input"], background_config)
     context = BotContext(
         config=config,
         detector=detector,
@@ -911,6 +920,14 @@ def main() -> None:
         mouse=mouse,
         reference_client_size=get_reference_client_size(config),
     )
+    if background_config.get("enabled", False):
+        if capture.background_active and mouse.background_active:
+            log("ADB background da san sang. Bot khong chiem chuot va khong can dua BlueStacks len tren.")
+        else:
+            log(
+                "Canh bao: ADB background chua san sang. "
+                "Bot tam dung che do foreground va se dua BlueStacks len tren khi can."
+            )
 
     try:
         run_state_machine(context)

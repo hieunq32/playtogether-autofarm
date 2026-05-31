@@ -1,4 +1,4 @@
-# Play Together Fruit Harvest Bot - File 1
+# Play Together AutoFarm Bot
 
 Project nay da duoc doi sang dung flow thu hoach trai cay theo menu, dung voi mo ta trong file 1.
 
@@ -24,7 +24,6 @@ File 2 se xu ly flow ban sau khi day tui. Hien tai bot dung o moc day tui.
 ```text
 autofarm/
 |-- main.py
-|-- coordinate_helper.py
 |-- config.json
 |-- requirements.txt
 |-- templates/
@@ -51,24 +50,24 @@ py -3 main.py
 
 Nhan `ESC` de dung an toan.
 
-## Lay toa do
+## Chay ngam khi cua so khac che BlueStacks
 
-```powershell
-py -3 coordinate_helper.py
-```
+Bot ho tro ADB background de Chrome hoac cua so khac che BlueStacks ma van hoat dong.
+Che do nay chup framebuffer Android va gui thao tac truc tiep vao emulator, khong dung
+pixel desktop va khong chiem chuot that.
 
-Khi helper dang chay:
+Thiet lap mot lan tren moi may:
 
-- Dua chuot vao diem can lay
-- Nhan `F6`
-- Copy `point_ratio` hoac `fallback_click_ratio snippet` vao `config.json`
+1. Mo BlueStacks.
+2. Vao `Settings > Advanced`.
+3. Bat `Android Debug Bridge (ADB)`.
+4. Luu thay doi va khoi dong lai BlueStacks.
+5. Chay `py -3 main.py`.
 
-Bot moi uu tien dung ratio:
-
-- `fallback_click_ratio`
-- `hover_point_ratio`
-
-Neu ban van muon dung pixel, code van support thong qua `fallback_click` va `window.reference_client_size`.
+Neu log co dong `ADB background da san sang`, co the mo Chrome che BlueStacks.
+Neu log bao `ADB background chua san sang`, bot se fallback ve foreground nhu ban cu.
+Khong thu nho BlueStacks trong lan test dau tien. Sau khi xac nhan ADB hoat dong thi
+co the test minimize rieng.
 
 ## Template can chuan bi
 
@@ -97,4 +96,4 @@ Moi file phai duoc chup sat vao dung button/message.
 - Giu nguyen kich thuoc cua so BlueStacks khi chup template va khi chay bot.
 - Neu button khong duoc detect on dinh, hay dien `fallback_click_ratio`.
 - Bot se cuon xuong de tim trai muc tieu neu tren man hinh hien tai chua thay.
-- Sau khi bag full, bot se dung. Day la dung theo pham vi file 1.
+- Sau khi bag full, bot se ban het nong san va quay lai flow thu hoach.
