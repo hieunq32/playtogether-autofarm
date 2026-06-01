@@ -539,6 +539,10 @@ def bootstrap_visible_flow_on_start(context: BotContext) -> bool:
 
     context.startup_flow_bootstrapped = True
     frame = capture_frame(context)
+    if dismiss_harvest_interrupt_popup(context, frame):
+        log("Da dong popup thong bao thu hoach luc khoi dong. Tiep tuc danh sach hien tai.")
+        return True
+
     if any(
         (
             is_sell_success_ok_visible(context, frame),
@@ -557,8 +561,26 @@ def bootstrap_visible_flow_on_start(context: BotContext) -> bool:
     return False
 
 
+def dismiss_harvest_interrupt_popup(context: BotContext, frame) -> bool:
+    if context.detector.find_message(frame, "harvest_interrupt") is None:
+        return False
+
+    if context.detector.find_action_button(frame, "harvest_interrupt_ok") is None:
+        return False
+
+    log("Phat hien popup thong bao trong luc thu hoach. Click 'OK' de tiep tuc.")
+    if click_named_button(context, "harvest_interrupt_ok", frame):
+        context.active_row = None
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        set_state(context, BotState.SEARCH_TARGET_ROWS)
+    return True
+
+
 def handle_search_target_rows(context: BotContext) -> None:
     frame = capture_frame(context)
+
+    if dismiss_harvest_interrupt_popup(context, frame):
+        return
 
     if context.detector.find_message(frame, "bag_full") is not None:
         set_state(context, BotState.BAG_FULL)
@@ -605,6 +627,10 @@ def handle_search_target_rows(context: BotContext) -> None:
 def handle_harvest_row(context: BotContext) -> None:
     if context.window is None or context.active_row is None:
         set_state(context, BotState.SEARCH_TARGET_ROWS)
+        return
+
+    frame = capture_frame(context)
+    if dismiss_harvest_interrupt_popup(context, frame):
         return
 
     row = context.active_row
