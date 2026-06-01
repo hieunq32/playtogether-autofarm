@@ -39,6 +39,11 @@ def _resolve_template_paths(config: dict, project_dir: Path) -> None:
         template_path = message_config.get("template")
         if template_path:
             message_config["template"] = _resolve_path(project_dir, template_path)
+        if "template_candidates" in message_config:
+            message_config["template_candidates"] = [
+                _resolve_path(project_dir, value)
+                for value in message_config.get("template_candidates", [])
+            ]
 
 
 def load_config(config_path: str = "config.json") -> dict:

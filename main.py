@@ -571,6 +571,17 @@ def handle_search_target_rows(context: BotContext) -> None:
         set_state(context, BotState.HARVEST_ROW)
         return
 
+    if context.detector.find_message(frame, "end_of_harvest_list") is not None:
+        log("Da thay 'Dau tay' o cuoi danh sach. Dong popup thu hoach bang nut X.")
+        if click_named_button(context, "close_harvest_popup", frame):
+            finish_harvest_session(
+                context,
+                f"Da cuon het danh sach. Da harvest {context.session_harvest_count} lan",
+            )
+        else:
+            log("Khong dong duoc popup thu hoach sau khi thay 'Dau tay'.")
+        return
+
     retry_before_scroll = int(
         context.config["navigation"]["scroll"].get("search_retries_before_scroll", 2)
     )

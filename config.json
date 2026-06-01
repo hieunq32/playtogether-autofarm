@@ -480,6 +480,20 @@
         0.74,
         0.42
       ]
+    },
+    "end_of_harvest_list": {
+      "template": "templates/ui/end_list_strawberry_label.png",
+      "template_candidates": [
+        "templates/ui/end_list_strawberry_label_alt_left.png",
+        "templates/ui/end_list_strawberry_label_alt_right.png"
+      ],
+      "threshold": 0.88,
+      "search_region_ratio": [
+        0.08,
+        0.18,
+        0.78,
+        0.94
+      ]
     }
   },
   "workflow": {

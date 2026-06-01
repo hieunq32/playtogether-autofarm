@@ -142,29 +142,43 @@ class TemplateDetector:
 
         return loaded
 
-    def _load_message_templates(self, message_config: Dict[str, dict]) -> Dict[str, LoadedTemplate]:
-        loaded: Dict[str, LoadedTemplate] = {}
+    def _load_message_templates(self, message_config: Dict[str, dict]) -> Dict[str, List[LoadedTemplate]]:
+        loaded: Dict[str, List[LoadedTemplate]] = {}
 
         for message_name, config in message_config.items():
-            template_path = config.get("template")
-            if not template_path:
+            template_paths: List[str] = []
+            primary_template = config.get("template")
+            if primary_template:
+                template_paths.append(str(primary_template))
+
+            extra_templates = config.get("template_candidates", [])
+            if isinstance(extra_templates, Sequence):
+                for template_path in extra_templates:
+                    if template_path:
+                        template_paths.append(str(template_path))
+
+            if not template_paths:
                 continue
 
-            image = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
-            if image is None:
-                log(f"Warning: khong doc duoc message template: {template_path}")
-                continue
+            loaded[message_name] = []
+            for template_path in template_paths:
+                image = cv2.imread(template_path, cv2.IMREAD_GRAYSCALE)
+                if image is None:
+                    log(f"Warning: khong doc duoc message template: {template_path}")
+                    continue
 
-            height, width = image.shape[:2]
-            loaded[message_name] = LoadedTemplate(
-                name=message_name,
-                path=template_path,
-                threshold=config.get("threshold", self.default_threshold),
-                image=image,
-                width=width,
-                height=height,
-                search_region_ratio=self._parse_search_region(config),
-            )
+                height, width = image.shape[:2]
+                loaded[message_name].append(
+                    LoadedTemplate(
+                        name=message_name,
+                        path=template_path,
+                        threshold=config.get("threshold", self.default_threshold),
+                        image=image,
+                        width=width,
+                        height=height,
+                        search_region_ratio=self._parse_search_region(config),
+                    )
+                )
 
         return loaded
 
@@ -199,10 +213,10 @@ class TemplateDetector:
         return self._find_all_matches(frame, templates)
 
     def find_message(self, frame: np.ndarray, message_name: str) -> Optional[MatchResult]:
-        template = self.message_templates.get(message_name)
-        if template is None:
+        templates = self.message_templates.get(message_name)
+        if not templates:
             return None
-        return self._find_first_match(frame, [template])
+        return self._find_first_match(frame, templates)
 
     def find_harvestable_rows(self, frame: np.ndarray) -> List[HarvestRowMatch]:
         label_matches = self._find_all_matches(frame, self.fruit_templates)
