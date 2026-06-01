@@ -226,7 +226,8 @@
         "template_candidates": [
           "templates/ui/available_current_icon_a.png",
           "templates/ui/available_current_icon_c.png",
-          "templates/ui/available_current_icon_adb_night_tight.png"
+          "templates/ui/available_current_icon_adb_night_tight.png",
+          "templates/ui/available_current_icon_adb_day_tight.png"
         ],
         "threshold": 0.88,
         "search_region_ratio": [
