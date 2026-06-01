@@ -225,7 +225,8 @@
         "template": "templates/ui/available_current_icon_b.png",
         "template_candidates": [
           "templates/ui/available_current_icon_a.png",
-          "templates/ui/available_current_icon_c.png"
+          "templates/ui/available_current_icon_c.png",
+          "templates/ui/available_current_icon_adb_night_tight.png"
         ],
         "threshold": 0.88,
         "search_region_ratio": [
@@ -485,9 +486,10 @@
     "stop_when_bag_full": false,
     "sell_when_bag_full": true,
     "stop_after_sell": false,
+    "harvest_navigation_recovery_attempts": 2,
     "restart_after_sell_delay_seconds": [
-      0.8,
-      1.6
+      2.0,
+      3.0
     ]
   }
 }

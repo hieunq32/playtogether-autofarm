@@ -62,6 +62,7 @@ class BotContext:
     scroll_attempts: int = 0
     no_match_search_attempts: int = 0
     session_harvest_count: int = 0
+    harvest_navigation_recoveries: int = 0
     restart_harvest_immediately: bool = False
     sell_flow_active: bool = False
     startup_flow_bootstrapped: bool = False
@@ -243,6 +244,7 @@ def reset_session(context: BotContext) -> None:
     context.no_match_search_attempts = 0
     context.state_attempts = 0
     context.session_harvest_count = 0
+    context.harvest_navigation_recoveries = 0
     context.restart_harvest_immediately = False
     context.sell_flow_active = False
 
@@ -311,6 +313,50 @@ def handle_navigation_step(
             set_state(context, BotState.SESSION_DONE)
     else:
         sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+
+
+def handle_open_available_to_harvest(context: BotContext) -> None:
+    frame = capture_frame(context)
+    if sync_state_from_visible_screen(context, frame):
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    if is_harvest_popup_visible(context, frame):
+        log("Da o san popup quan ly nha. Bo qua click 'Co the thu hoach'.")
+        context.harvest_navigation_recoveries = 0
+        set_state(context, BotState.OPEN_HARVEST_POPUP)
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    if click_named_button(context, "available_to_harvest", frame):
+        context.harvest_navigation_recoveries = 0
+        set_state(context, BotState.OPEN_HARVEST_POPUP)
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    context.state_attempts += 1
+    max_retries = int(context.config["navigation"]["max_button_search_retries"])
+    if context.state_attempts < max_retries:
+        sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+        return
+
+    max_recoveries = int(
+        context.config.get("workflow", {}).get("harvest_navigation_recovery_attempts", 2)
+    )
+    if context.harvest_navigation_recoveries < max_recoveries:
+        context.harvest_navigation_recoveries += 1
+        log(
+            "Chua thay 'Co the thu hoach'. Quay lai scan man hinh chinh "
+            f"({context.harvest_navigation_recoveries}/{max_recoveries})."
+        )
+        set_state(context, BotState.OPEN_HOME)
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    finish_harvest_session(
+        context,
+        "Khong thay 'Co the thu hoach'. Co the chua den gio thu hoach",
+    )
 
 
 def is_available_to_harvest_visible(context: BotContext, frame) -> bool:
@@ -780,15 +826,10 @@ def run_state_machine(context: BotContext) -> None:
                 success_state=BotState.OPEN_AVAILABLE_TO_HARVEST,
                 failure_reason="Khong mo duoc 'Nha ta'",
                 already_success_predicate=is_available_to_harvest_visible,
+                retry_forever=True,
             )
         elif context.state == BotState.OPEN_AVAILABLE_TO_HARVEST:
-            handle_navigation_step(
-                context,
-                action_name="available_to_harvest",
-                success_state=BotState.OPEN_HARVEST_POPUP,
-                failure_reason="Khong thay 'Co the thu hoach'. Co the chua den gio thu hoach",
-                already_success_predicate=is_harvest_popup_visible,
-            )
+            handle_open_available_to_harvest(context)
         elif context.state == BotState.OPEN_HARVEST_POPUP:
             handle_navigation_step(
                 context,
