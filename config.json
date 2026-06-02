@@ -298,7 +298,8 @@
         "template_candidates": [
           "templates/ui/sell_entry_red_ban_wide.png",
           "templates/ui/sell_entry_red_ban_live_current.png",
-          "templates/ui/sell_entry_red_ban_live_current_tight.png"
+          "templates/ui/sell_entry_red_ban_live_current_tight.png",
+          "templates/ui/sell_entry_red_ban_adb_day_tight.png"
         ],
         "threshold": 0.88,
         "search_region_ratio": [

@@ -697,6 +697,32 @@ def handle_bag_full(context: BotContext) -> None:
     finish_harvest_session(context, "Day tui")
 
 
+def handle_open_sell_entry(context: BotContext) -> None:
+    frame = capture_frame(context)
+    if sync_state_from_visible_screen(context, frame):
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    if click_named_button(context, "sell_entry", frame):
+        set_state(context, BotState.OPEN_SELL_CART)
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    if is_fruit_list_visible(context, frame):
+        log("Danh sach thu hoach van dang mo. Dong bang nut X truoc khi tim button 'Ban'.")
+        if click_named_button(context, "close_harvest_popup", frame):
+            context.state_attempts = 0
+            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+            return
+
+    context.state_attempts += 1
+    max_retries = int(context.config["navigation"]["max_button_search_retries"])
+    if context.state_attempts >= max_retries:
+        log("Chua tim thay 'sell_entry'. Tiep tuc scan thay vi ket thuc bot.")
+        context.state_attempts = 0
+    sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+
+
 def handle_sell_auto_select(context: BotContext) -> None:
     frame = capture_frame(context)
     if sync_state_from_visible_screen(context, frame):
@@ -884,15 +910,7 @@ def run_state_machine(context: BotContext) -> None:
         elif context.state == BotState.BAG_FULL:
             handle_bag_full(context)
         elif context.state == BotState.OPEN_SELL_ENTRY:
-            handle_navigation_step(
-                context,
-                action_name="sell_entry",
-                success_state=BotState.OPEN_SELL_CART,
-                failure_reason="Khong mo duoc giao dien ban",
-                already_success_predicate=is_sell_cart_visible,
-                session_done_if_exhausted=False,
-                retry_forever=True,
-            )
+            handle_open_sell_entry(context)
         elif context.state == BotState.OPEN_SELL_CART:
             handle_navigation_step(
                 context,
