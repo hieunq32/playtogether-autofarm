@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from utils.config import load_config
+from utils.adb import BlueStacksAdb
 from utils.detector import HarvestRowMatch, TemplateDetector
 from utils.geometry import (
     clamp_point,
@@ -76,7 +77,7 @@ def set_state(context: BotContext, new_state: BotState) -> None:
 
 
 def refresh_game_window(context: BotContext) -> bool:
-    if context.capture.background_active and context.mouse.background_active:
+    if context.capture.background_enabled and context.mouse.background_enabled:
         if context.window is None:
             width, height = context.reference_client_size or (528, 312)
             context.window = GameWindow(
@@ -143,7 +144,7 @@ def capture_frame(context: BotContext):
 def ensure_game_window_active(context: BotContext) -> None:
     if context.window is None:
         return
-    if context.capture.background_active and context.mouse.background_active:
+    if context.capture.background_enabled and context.mouse.background_enabled:
         return
 
     window_config = context.config["window"]
@@ -1003,29 +1004,27 @@ def run_state_machine(context: BotContext) -> None:
 
 
 def main() -> None:
-    config_path = Path(__file__).resolve().parent / "config.json"
-    config = load_config(str(config_path))
-    detector = TemplateDetector(config)
-    background_config = config.get("background", {})
-    capture = ScreenCapture(background_config)
-    mouse = MouseController(config["input"], background_config)
-    context = BotContext(
-        config=config,
-        detector=detector,
-        capture=capture,
-        mouse=mouse,
-        reference_client_size=get_reference_client_size(config),
-    )
-    if background_config.get("enabled", False):
-        if capture.background_active and mouse.background_active:
-            log("ADB background da san sang. Bot khong chiem chuot va khong can dua BlueStacks len tren.")
-        else:
-            log(
-                "Canh bao: ADB background chua san sang. "
-                "Bot tam dung che do foreground va se dua BlueStacks len tren khi can."
-            )
+    capture = None
 
     try:
+        config_path = Path(__file__).resolve().parent / "config.json"
+        config = load_config(str(config_path))
+        detector = TemplateDetector(config)
+        background_config = config.get("background", {})
+        adb_client = BlueStacksAdb(background_config)
+        capture = ScreenCapture(background_config, adb_client)
+        mouse = MouseController(config["input"], background_config, adb_client)
+        context = BotContext(
+            config=config,
+            detector=detector,
+            capture=capture,
+            mouse=mouse,
+            reference_client_size=get_reference_client_size(config),
+        )
+        if background_config.get("enabled", False):
+            mode = str(background_config.get("mode", "adb_first"))
+            log(f"ADB {mode} da san sang. {adb_client.describe()}")
+
         run_state_machine(context)
     except KeyboardInterrupt:
         log("Bot dung boi nguoi dung.")
@@ -1033,7 +1032,8 @@ def main() -> None:
         log(f"Loi nghiem trong: {exc}")
         traceback.print_exc()
     finally:
-        capture.close()
+        if capture is not None:
+            capture.close()
         log("Da tat bot.")
 
 

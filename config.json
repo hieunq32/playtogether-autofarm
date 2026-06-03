@@ -17,8 +17,11 @@
   },
   "background": {
     "enabled": true,
+    "mode": "adb_first",
+    "allow_desktop_fallback": false,
     "device": "127.0.0.1:5555",
     "timeout_seconds": 5.0,
+    "connect_retries": 2,
     "adb_screen_size": [
       1600,
       900

@@ -6,22 +6,44 @@ from utils.adb import BlueStacksAdb
 
 
 class ScreenCapture:
-    def __init__(self, background_config: dict | None = None) -> None:
+    def __init__(
+        self,
+        background_config: dict | None = None,
+        adb_client: BlueStacksAdb | None = None,
+    ) -> None:
         self._capture = mss()
         self.background_config = background_config or {}
-        self.adb = BlueStacksAdb(self.background_config)
+        self.mode = str(self.background_config.get("mode", "adb_first")).lower()
         self.background_enabled = bool(self.background_config.get("enabled", False))
-        self.background_active = self.background_enabled and self.adb.is_available()
+        self.allow_desktop_fallback = bool(
+            self.background_config.get("allow_desktop_fallback", False)
+        )
+        self.adb = adb_client or BlueStacksAdb(self.background_config)
+        self.background_active = self.background_enabled and self.adb.ensure_connected()
+        if self.is_adb_required and not self.background_active:
+            raise RuntimeError(f"ADB-first khong san sang: {self.adb.last_error}")
+
+    @property
+    def is_adb_required(self) -> bool:
+        return self.background_enabled and self.mode == "adb_first" and not self.allow_desktop_fallback
 
     def grab(self, window):
-        if self.background_active:
+        if self.background_enabled:
             frame = self._grab_adb_frame(window)
             if frame is not None:
+                self.background_active = True
                 return frame
-            raise RuntimeError(
-                "Mat ket noi ADB khi dang chay background. "
-                "Bot dung an toan thay vi doc nham man hinh desktop."
-            )
+            self.background_active = False
+            if self.is_adb_required:
+                raise RuntimeError(
+                    "Mat ket noi ADB khi dang chay adb_first. "
+                    f"Ly do: {self.adb.last_error}"
+                )
+            if not self.allow_desktop_fallback:
+                raise RuntimeError(
+                    "Mat ket noi ADB va desktop fallback dang tat. "
+                    f"Ly do: {self.adb.last_error}"
+                )
 
         monitor = {
             "left": window.left,

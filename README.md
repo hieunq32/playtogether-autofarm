@@ -50,11 +50,12 @@ py -3 main.py
 
 Nhan `ESC` de dung an toan.
 
-## Chay ngam khi cua so khac che BlueStacks
+## Chay ngam bang ADB-first
 
-Bot ho tro ADB background de Chrome hoac cua so khac che BlueStacks ma van hoat dong.
-Che do nay chup framebuffer Android va gui thao tac truc tiep vao emulator, khong dung
-pixel desktop va khong chiem chuot that.
+Bot dang duoc cau hinh theo che do `adb_first`: chup framebuffer Android qua ADB
+va gui thao tac `tap/swipe` truc tiep vao emulator. Vi vay Chrome hoac cua so khac
+co the che BlueStacks ma bot van chay, mien la BlueStacks van dang mo va game van
+o dung ty le man hinh da calibrate.
 
 Thiet lap mot lan tren moi may:
 
@@ -64,10 +65,10 @@ Thiet lap mot lan tren moi may:
 4. Luu thay doi va khoi dong lai BlueStacks.
 5. Chay `py -3 main.py`.
 
-Neu log co dong `ADB background da san sang`, co the mo Chrome che BlueStacks.
-Neu log bao `ADB background chua san sang`, bot se fallback ve foreground nhu ban cu.
-Khong thu nho BlueStacks trong lan test dau tien. Sau khi xac nhan ADB hoat dong thi
-co the test minimize rieng.
+Neu log co dong `ADB adb_first da san sang`, co the mo Chrome che BlueStacks.
+Neu ADB khong san sang, bot se dung va in ly do loi, khong fallback sang click desktop.
+Khong nen minimize BlueStacks trong lan test dau tien; hay test che cua so bang Chrome
+truoc. Sau khi xac nhan on dinh moi thu nghiem minimize rieng.
 
 ## Template can chuan bi
 
