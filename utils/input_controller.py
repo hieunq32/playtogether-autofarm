@@ -83,10 +83,20 @@ class MouseController:
         self.backend.moveTo(absolute_x, absolute_y, duration=move_duration)
         return absolute_x, absolute_y
 
-    def scroll_relative(self, window, relative_point, wheel_delta: int) -> None:
+    def scroll_relative(
+        self,
+        window,
+        relative_point,
+        wheel_delta: int,
+        distance_pixels: int | None = None,
+    ) -> None:
         if self.background_enabled:
             start_x, start_y = self._relative_to_adb(window, relative_point)
-            distance = int(self.background_config.get("scroll_distance_pixels", 420))
+            distance = int(
+                distance_pixels
+                if distance_pixels is not None
+                else self.background_config.get("scroll_distance_pixels", 420)
+            )
             direction = -1 if wheel_delta < 0 else 1
             adb_height = int(self.background_config.get("adb_screen_size", [1600, 900])[1])
             end_y = max(0, min(adb_height - 1, start_y + direction * distance))

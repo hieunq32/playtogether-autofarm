@@ -32,6 +32,16 @@ class BotState(Enum):
     HARVEST_ROW = auto()
     SCROLL_LIST = auto()
     BAG_FULL = auto()
+    OPEN_SEED_SHOP_ENTRY = auto()
+    OPEN_SEED_SHOP_NPC_MENU = auto()
+    OPEN_SEED_SHOP_BUY_OPTION = auto()
+    SEARCH_PUMPKIN_SEED = auto()
+    SELECT_PUMPKIN_SEED = auto()
+    BUY_PUMPKIN_SEED = auto()
+    CONFIRM_BUY_PUMPKIN_SEED = auto()
+    CLOSE_SEED_SHOP = auto()
+    LEAVE_SEED_SHOP_MENU = auto()
+    DISMISS_SEED_SHOP_END_DIALOG = auto()
     OPEN_SELL_ENTRY = auto()
     OPEN_SELL_CART = auto()
     ADVANCE_SELL_NPC_DIALOG = auto()
@@ -66,6 +76,8 @@ class BotContext:
     harvest_navigation_recoveries: int = 0
     restart_harvest_immediately: bool = False
     sell_flow_active: bool = False
+    seed_flow_active: bool = False
+    seed_target_index: int = 0
     startup_flow_bootstrapped: bool = False
 
 
@@ -248,6 +260,8 @@ def reset_session(context: BotContext) -> None:
     context.harvest_navigation_recoveries = 0
     context.restart_harvest_immediately = False
     context.sell_flow_active = False
+    context.seed_flow_active = False
+    context.seed_target_index = 0
 
 
 def schedule_next_check(context: BotContext, reason: str) -> None:
@@ -259,6 +273,64 @@ def schedule_next_check(context: BotContext, reason: str) -> None:
 def begin_harvest_session(context: BotContext) -> None:
     reset_session(context)
     set_state(context, BotState.OPEN_HOME)
+
+
+def begin_seed_purchase_flow(context: BotContext) -> None:
+    context.sell_flow_active = False
+    context.seed_flow_active = True
+    context.seed_target_index = 0
+    context.state_attempts = 0
+    log("Bat dau quy trinh mua danh sach hat giong truoc khi ban nong san.")
+    set_state(context, BotState.OPEN_SEED_SHOP_ENTRY)
+
+
+def begin_sell_flow(context: BotContext) -> None:
+    context.seed_flow_active = False
+    context.sell_flow_active = True
+    context.state_attempts = 0
+    log("Bat dau quy trinh ban nong san.")
+    set_state(context, BotState.OPEN_SELL_ENTRY)
+
+
+def get_seed_targets(context: BotContext) -> list[dict]:
+    return list(context.config.get("workflow", {}).get("seed_purchase_targets", []))
+
+
+def get_current_seed_target(context: BotContext) -> Optional[dict]:
+    targets = get_seed_targets(context)
+    if context.seed_target_index < 0 or context.seed_target_index >= len(targets):
+        return None
+    return targets[context.seed_target_index]
+
+
+def get_current_seed_display_name(context: BotContext) -> str:
+    target = get_current_seed_target(context)
+    if target is None:
+        return "hat giong"
+    return str(target.get("display_name") or target.get("name") or "hat giong")
+
+
+def advance_to_next_seed_target(context: BotContext) -> None:
+    context.seed_target_index += 1
+    context.state_attempts = 0
+    target = get_current_seed_target(context)
+    if target is None:
+        log("Da xu ly het danh sach hat giong. Dong shop va tiep tuc ban nong san.")
+        set_state(context, BotState.CLOSE_SEED_SHOP)
+        return
+
+    log(f"Chuyen sang tim mua {get_current_seed_display_name(context)}.")
+    set_state(context, BotState.SEARCH_PUMPKIN_SEED)
+
+
+def find_visible_seed_target_index(context: BotContext, frame, start_index: int) -> Optional[int]:
+    """Tim target hat giong ke tiep dang hien tren viewport hien tai."""
+    targets = get_seed_targets(context)
+    for index in range(max(0, start_index), len(targets)):
+        action_name = str(targets[index].get("row_action", ""))
+        if action_name and context.detector.find_action_button(frame, action_name) is not None:
+            return index
+    return None
 
 
 def finish_harvest_session(context: BotContext, reason: str) -> None:
@@ -414,7 +486,51 @@ def is_sell_screen_close_visible(context: BotContext, frame) -> bool:
     return context.detector.find_action_button(frame, "sell_screen_close") is not None
 
 
+def is_seed_shop_entry_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "seed_shop_entry") is not None
+
+
+def is_seed_shop_buy_option_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "seed_shop_buy_option") is not None
+
+
+def is_seed_shop_npc_trigger_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "seed_shop_npc_trigger") is not None
+
+
+def is_seed_shop_leave_option_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "seed_shop_leave_option") is not None
+
+
+def is_seed_shop_menu_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "seed_shop_close") is not None
+
+
+def is_pumpkin_seed_row_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "seed_pumpkin_row") is not None
+
+
+def is_pumpkin_seed_detail_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "seed_pumpkin_detail") is not None
+
+
+def is_pumpkin_seed_sold_out_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "seed_pumpkin_sold_out") is not None
+
+
 def sync_state_from_visible_screen(context: BotContext, frame) -> bool:
+    seed_states = {
+        BotState.OPEN_SEED_SHOP_ENTRY,
+        BotState.OPEN_SEED_SHOP_NPC_MENU,
+        BotState.OPEN_SEED_SHOP_BUY_OPTION,
+        BotState.SEARCH_PUMPKIN_SEED,
+        BotState.SELECT_PUMPKIN_SEED,
+        BotState.BUY_PUMPKIN_SEED,
+        BotState.CONFIRM_BUY_PUMPKIN_SEED,
+        BotState.CLOSE_SEED_SHOP,
+        BotState.LEAVE_SEED_SHOP_MENU,
+        BotState.DISMISS_SEED_SHOP_END_DIALOG,
+    }
     sell_states = {
         BotState.OPEN_SELL_ENTRY,
         BotState.OPEN_SELL_CART,
@@ -429,7 +545,69 @@ def sync_state_from_visible_screen(context: BotContext, frame) -> bool:
         BotState.SELL_DISMISS_END_DIALOG,
     }
 
+    should_sync_seed = context.seed_flow_active or context.state in seed_states
     should_sync_sell = context.sell_flow_active or context.state in sell_states
+
+    if (
+        should_sync_seed
+        and context.state in {
+            BotState.CLOSE_SEED_SHOP,
+            BotState.LEAVE_SEED_SHOP_MENU,
+            BotState.DISMISS_SEED_SHOP_END_DIALOG,
+        }
+        and is_seed_shop_leave_option_visible(context, frame)
+    ):
+        if context.state != BotState.LEAVE_SEED_SHOP_MENU:
+            log("Da o san menu NPC cua cua hang hat giong.")
+            set_state(context, BotState.LEAVE_SEED_SHOP_MENU)
+            return True
+        return False
+
+    if (
+        should_sync_seed
+        and context.state
+        not in {
+            BotState.CLOSE_SEED_SHOP,
+            BotState.LEAVE_SEED_SHOP_MENU,
+            BotState.DISMISS_SEED_SHOP_END_DIALOG,
+        }
+        and (get_current_seed_target(context) or {}).get("name") == "pumpkin"
+        and is_pumpkin_seed_detail_visible(context, frame)
+    ):
+        if context.state not in {BotState.BUY_PUMPKIN_SEED, BotState.CONFIRM_BUY_PUMPKIN_SEED}:
+            log("Da chon san 'Hat bi ngo' trong cua hang hat giong.")
+            set_state(context, BotState.BUY_PUMPKIN_SEED)
+            return True
+        return False
+
+    if (
+        should_sync_seed
+        and context.state
+        not in {
+            BotState.CLOSE_SEED_SHOP,
+            BotState.LEAVE_SEED_SHOP_MENU,
+            BotState.DISMISS_SEED_SHOP_END_DIALOG,
+        }
+        and is_seed_shop_menu_visible(context, frame)
+    ):
+        if context.state not in {
+            BotState.SEARCH_PUMPKIN_SEED,
+            BotState.SELECT_PUMPKIN_SEED,
+            BotState.BUY_PUMPKIN_SEED,
+            BotState.CONFIRM_BUY_PUMPKIN_SEED,
+            BotState.CLOSE_SEED_SHOP,
+        }:
+            log("Da o san giao dien mua hat giong.")
+            set_state(context, BotState.SEARCH_PUMPKIN_SEED)
+            return True
+        return False
+
+    if should_sync_seed and is_seed_shop_buy_option_visible(context, frame):
+        if context.state != BotState.OPEN_SEED_SHOP_BUY_OPTION:
+            log("Da o san menu NPC voi lua chon 'Mua'.")
+            set_state(context, BotState.OPEN_SEED_SHOP_BUY_OPTION)
+            return True
+        return False
 
     if should_sync_sell and is_sell_success_ok_visible(context, frame):
         if context.state != BotState.SELL_SUCCESS_OK:
@@ -559,6 +737,22 @@ def bootstrap_visible_flow_on_start(context: BotContext) -> bool:
         log("Phat hien dang o giua quy trinh ban. Tiep tuc tu man hinh hien tai.")
         context.sell_flow_active = True
         return sync_state_from_visible_screen(context, frame)
+    if any(
+        (
+            is_seed_shop_buy_option_visible(context, frame),
+            is_seed_shop_leave_option_visible(context, frame),
+            is_seed_shop_menu_visible(context, frame),
+            is_seed_shop_npc_trigger_visible(context, frame),
+        )
+    ):
+        log("Phat hien dang o giua quy trinh mua hat giong. Tiep tuc tu man hinh hien tai.")
+        context.seed_flow_active = True
+        if sync_state_from_visible_screen(context, frame):
+            return True
+        if is_seed_shop_npc_trigger_visible(context, frame):
+            set_state(context, BotState.OPEN_SEED_SHOP_NPC_MENU)
+            return True
+        return False
     return False
 
 
@@ -597,10 +791,21 @@ def handle_search_target_rows(context: BotContext) -> None:
     if context.detector.find_message(frame, "end_of_harvest_list") is not None:
         log("Da thay 'Dau tay' o cuoi danh sach. Dong popup thu hoach bang nut X.")
         if click_named_button(context, "close_harvest_popup", frame):
-            finish_harvest_session(
-                context,
-                f"Da cuon het danh sach. Da harvest {context.session_harvest_count} lan",
-            )
+            if (
+                context.session_harvest_count > 0
+                and context.config.get("workflow", {}).get("buy_seed_before_sell", True)
+            ):
+                log(
+                    "Da hoan tat danh sach thu hoach. "
+                    "Chuyen sang mua hat giong truoc khi ban."
+                )
+                sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+                begin_seed_purchase_flow(context)
+            else:
+                finish_harvest_session(
+                    context,
+                    f"Da cuon het danh sach. Da harvest {context.session_harvest_count} lan",
+                )
         else:
             log("Khong dong duoc popup thu hoach sau khi thay 'Dau tay'.")
         return
@@ -686,9 +891,11 @@ def handle_bag_full(context: BotContext) -> None:
 
     workflow_config = context.config.get("workflow", {})
     if workflow_config.get("sell_when_bag_full", True):
-        log("Bat dau quy trinh ban nong san sau khi day tui.")
-        context.sell_flow_active = True
-        set_state(context, BotState.OPEN_SELL_ENTRY)
+        if workflow_config.get("buy_seed_before_sell", True):
+            begin_seed_purchase_flow(context)
+        else:
+            log("Bat dau quy trinh ban nong san sau khi day tui.")
+            begin_sell_flow(context)
         return
 
     if workflow_config.get("stop_when_bag_full", True):
@@ -696,6 +903,150 @@ def handle_bag_full(context: BotContext) -> None:
         return
 
     finish_harvest_session(context, "Day tui")
+
+
+def handle_search_pumpkin_seed(context: BotContext) -> None:
+    frame = capture_frame(context)
+    if sync_state_from_visible_screen(context, frame):
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    target = get_current_seed_target(context)
+    if target is None:
+        set_state(context, BotState.CLOSE_SEED_SHOP)
+        return
+
+    target_name = get_current_seed_display_name(context)
+    target_action = str(target.get("row_action", ""))
+    if not target_action:
+        log(f"Target {target_name} chua cau hinh row_action. Bo qua.")
+        advance_to_next_seed_target(context)
+        return
+
+    if click_named_button(context, target_action, frame):
+        set_state(context, BotState.SELECT_PUMPKIN_SEED)
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    visible_later_index = find_visible_seed_target_index(
+        context,
+        frame,
+        context.seed_target_index + 1,
+    )
+    if visible_later_index is not None:
+        missed_name = target_name
+        context.seed_target_index = visible_later_index
+        context.state_attempts = 0
+        log(
+            f"Khong thay {missed_name}, nhung thay {get_current_seed_display_name(context)} "
+            "tren man hinh. Chuyen sang target nay."
+        )
+        return
+
+    context.state_attempts += 1
+    max_scrolls = int(
+        context.config.get("workflow", {}).get(
+            "seed_shop_max_scroll_attempts_per_target",
+            context.config.get("workflow", {}).get("seed_shop_max_scroll_attempts", 8),
+        )
+    )
+    if context.state_attempts > max_scrolls:
+        log(f"Khong tim thay {target_name} trong shop. Bo qua target nay.")
+        advance_to_next_seed_target(context)
+        return
+
+    if context.window is None:
+        return
+
+    seed_scroll_ratio = context.config.get("workflow", {}).get(
+        "seed_shop_scroll_point_ratio",
+        [0.322, 0.577],
+    )
+    hover_point = (
+        round(context.window.width * float(seed_scroll_ratio[0])),
+        round(context.window.height * float(seed_scroll_ratio[1])),
+    )
+    workflow_config = context.config.get("workflow", {})
+    if context.seed_target_index == 0:
+        wheel_delta = int(workflow_config.get("seed_shop_initial_wheel_delta", -420))
+        distance_pixels = int(workflow_config.get("seed_shop_initial_scroll_distance_pixels", 420))
+        scroll_label = "Scroll nhanh"
+    else:
+        wheel_delta = int(workflow_config.get("seed_shop_wheel_delta", -180))
+        distance_pixels = int(workflow_config.get("seed_shop_scroll_distance_pixels", 150))
+        scroll_label = "Scroll nhe"
+    log(
+        f"Chua thay {target_name}. {scroll_label} shop hat giong "
+        f"lan {context.state_attempts}/{max_scrolls}."
+    )
+    context.mouse.scroll_relative(context.window, hover_point, wheel_delta, distance_pixels)
+    sleep_random(context.config["timing"]["scroll_delay_seconds"])
+
+
+def handle_select_pumpkin_seed(context: BotContext) -> None:
+    set_state(context, BotState.BUY_PUMPKIN_SEED)
+
+
+def handle_buy_pumpkin_seed(context: BotContext) -> None:
+    frame = capture_frame(context)
+    target_name = get_current_seed_display_name(context)
+    if get_current_seed_target(context) is None:
+        set_state(context, BotState.CLOSE_SEED_SHOP)
+        return
+
+    if not is_seed_shop_menu_visible(context, frame):
+        log(f"Chua thay giao dien shop khi xu ly {target_name}. Quay lai tim trong danh sach hat giong.")
+        set_state(context, BotState.SEARCH_PUMPKIN_SEED)
+        return
+
+    if is_pumpkin_seed_sold_out_visible(context, frame):
+        log(f"{target_name} dang het hang. Bo qua va xu ly hat tiep theo.")
+        advance_to_next_seed_target(context)
+        return
+
+    if click_named_button(context, "seed_buy_price", frame):
+        set_state(context, BotState.CONFIRM_BUY_PUMPKIN_SEED)
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    log(f"Khong thay nut gia tien de mua {target_name}. Bo qua target nay.")
+    advance_to_next_seed_target(context)
+
+
+def handle_confirm_buy_pumpkin_seed(context: BotContext) -> None:
+    frame = capture_frame(context)
+    target_name = get_current_seed_display_name(context)
+    if click_named_button(context, "seed_buy_popup_submit", frame):
+        log(f"Da click xac nhan mua {target_name}.")
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        advance_to_next_seed_target(context)
+        return
+
+    context.state_attempts += 1
+    max_retries = int(context.config["navigation"]["max_button_search_retries"])
+    if context.state_attempts >= max_retries:
+        log(f"Khong xac nhan duoc popup mua {target_name}. Bo qua target nay.")
+        advance_to_next_seed_target(context)
+    else:
+        sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+
+
+def handle_dismiss_seed_shop_end_dialog(context: BotContext) -> None:
+    clicked = False
+    for attempt in range(2):
+        frame = capture_frame(context)
+        if click_named_button(context, "seed_shop_final_dialog_continue", frame):
+            clicked = True
+            log(f"Da click ket thuc hoi thoai shop lan {attempt + 1}/2.")
+            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+            continue
+        if attempt == 0:
+            sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+
+    if not clicked:
+        log("Khong thay nut ket thuc hoi thoai shop. Tiep tuc sang luong ban.")
+
+    begin_sell_flow(context)
 
 
 def handle_open_sell_entry(context: BotContext) -> None:
@@ -910,6 +1261,66 @@ def run_state_machine(context: BotContext) -> None:
             handle_scroll_list(context)
         elif context.state == BotState.BAG_FULL:
             handle_bag_full(context)
+        elif context.state == BotState.OPEN_SEED_SHOP_ENTRY:
+            handle_navigation_step(
+                context,
+                action_name="seed_shop_entry",
+                success_state=BotState.OPEN_SEED_SHOP_NPC_MENU,
+                failure_reason="Khong mo duoc 'Cua hang hat giong'",
+                already_success_predicate=lambda current_context, current_frame: (
+                    is_seed_shop_npc_trigger_visible(current_context, current_frame)
+                    or is_seed_shop_buy_option_visible(current_context, current_frame)
+                    or is_seed_shop_menu_visible(current_context, current_frame)
+                ),
+                session_done_if_exhausted=False,
+                retry_forever=True,
+            )
+        elif context.state == BotState.OPEN_SEED_SHOP_NPC_MENU:
+            handle_navigation_step(
+                context,
+                action_name="seed_shop_npc_trigger",
+                success_state=BotState.OPEN_SEED_SHOP_BUY_OPTION,
+                failure_reason="Khong mo duoc menu NPC cua hang hat giong",
+                already_success_predicate=is_seed_shop_buy_option_visible,
+                session_done_if_exhausted=False,
+            )
+        elif context.state == BotState.OPEN_SEED_SHOP_BUY_OPTION:
+            handle_navigation_step(
+                context,
+                action_name="seed_shop_buy_option",
+                success_state=BotState.SEARCH_PUMPKIN_SEED,
+                failure_reason="Khong mo duoc menu mua hat giong",
+                already_success_predicate=is_seed_shop_menu_visible,
+                session_done_if_exhausted=False,
+                retry_forever=True,
+            )
+        elif context.state == BotState.SEARCH_PUMPKIN_SEED:
+            handle_search_pumpkin_seed(context)
+        elif context.state == BotState.SELECT_PUMPKIN_SEED:
+            handle_select_pumpkin_seed(context)
+        elif context.state == BotState.BUY_PUMPKIN_SEED:
+            handle_buy_pumpkin_seed(context)
+        elif context.state == BotState.CONFIRM_BUY_PUMPKIN_SEED:
+            handle_confirm_buy_pumpkin_seed(context)
+        elif context.state == BotState.CLOSE_SEED_SHOP:
+            handle_navigation_step(
+                context,
+                action_name="seed_shop_close",
+                success_state=BotState.LEAVE_SEED_SHOP_MENU,
+                failure_reason="Khong dong duoc cua hang hat giong",
+                already_success_predicate=is_seed_shop_leave_option_visible,
+                session_done_if_exhausted=False,
+            )
+        elif context.state == BotState.LEAVE_SEED_SHOP_MENU:
+            handle_navigation_step(
+                context,
+                action_name="seed_shop_leave_option",
+                success_state=BotState.DISMISS_SEED_SHOP_END_DIALOG,
+                failure_reason="Khong chon duoc 'Roi khoi' cua hang hat giong",
+                session_done_if_exhausted=False,
+            )
+        elif context.state == BotState.DISMISS_SEED_SHOP_END_DIALOG:
+            handle_dismiss_seed_shop_end_dialog(context)
         elif context.state == BotState.OPEN_SELL_ENTRY:
             handle_open_sell_entry(context)
         elif context.state == BotState.OPEN_SELL_CART:

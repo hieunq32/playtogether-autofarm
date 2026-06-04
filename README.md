@@ -97,4 +97,5 @@ Moi file phai duoc chup sat vao dung button/message.
 - Giu nguyen kich thuoc cua so BlueStacks khi chup template va khi chay bot.
 - Neu button khong duoc detect on dinh, hay dien `fallback_click_ratio`.
 - Bot se cuon xuong de tim trai muc tieu neu tren man hinh hien tai chua thay.
-- Sau khi bag full, bot se ban het nong san va quay lai flow thu hoach.
+- Sau khi thu hoach xong, bot se vao `Cua hang hat giong`, kiem tra lan luot cac hat: `Hat bi ngo`, `Hat dua hau`, `Hat dua`, `Hat khe`, `Hat tao duong`, `Hat cay dau`, roi moi ban nong san.
+- Neu hat hien `Het hang`, bot se bo qua hat do va xu ly hat tiep theo. Neu con hang, bot click nut gia tien va xac nhan mua trong popup.
