@@ -5,6 +5,9 @@ from enum import Enum, auto
 from pathlib import Path
 from typing import Optional
 
+import cv2
+import numpy as np
+
 from utils.config import load_config
 from utils.adb import BlueStacksAdb
 from utils.detector import HarvestRowMatch, TemplateDetector
@@ -249,6 +252,167 @@ def click_named_button(context: BotContext, action_name: str, frame=None) -> boo
     log(f"Clicked '{action_name}' bang {source} tai {click_point}.")
     sleep_random(context.config["timing"]["click_delay_seconds"])
     return True
+
+
+def resolve_action_search_region(context: BotContext, action_name: str, frame) -> tuple[int, int, int, int]:
+    button_config = get_navigation_config(context, action_name)
+    region_ratio = button_config.get("search_region_ratio")
+    height, width = frame.shape[:2]
+    if not isinstance(region_ratio, list) or len(region_ratio) != 4:
+        return 0, 0, width, height
+
+    left = max(0, min(width - 1, round(float(region_ratio[0]) * width)))
+    top = max(0, min(height - 1, round(float(region_ratio[1]) * height)))
+    right = max(left + 1, min(width, round(float(region_ratio[2]) * width)))
+    bottom = max(top + 1, min(height, round(float(region_ratio[3]) * height)))
+    return left, top, right, bottom
+
+
+def find_blue_button_point_in_action_region(
+    context: BotContext,
+    frame,
+    action_name: str,
+) -> Optional[tuple[int, int]]:
+    left, top, right, bottom = resolve_action_search_region(context, action_name, frame)
+    roi = frame[top:bottom, left:right]
+    if roi.size == 0:
+        return None
+
+    hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+    # Nut mua cua shop la xanh/cyan; loc theo mau de khong phu thuoc vao so tien tren nut.
+    lower_blue = np.array([80, 55, 120], dtype=np.uint8)
+    upper_blue = np.array([110, 255, 255], dtype=np.uint8)
+    mask = cv2.inRange(hsv, lower_blue, upper_blue)
+    kernel = np.ones((5, 5), dtype=np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    candidates: list[tuple[int, int, int, int, int]] = []
+    for contour in contours:
+        x_pos, y_pos, width, height = cv2.boundingRect(contour)
+        area = width * height
+        if area < 450 or width < 32 or height < 18:
+            continue
+        candidates.append((area, x_pos, y_pos, width, height))
+
+    if not candidates:
+        return None
+
+    _, x_pos, y_pos, width, height = max(candidates, key=lambda item: item[0])
+    return left + x_pos + width // 2, top + y_pos + height // 2
+
+
+def find_red_button_point_in_action_region(
+    context: BotContext,
+    frame,
+    action_name: str,
+) -> Optional[tuple[int, int]]:
+    left, top, right, bottom = resolve_action_search_region(context, action_name, frame)
+    roi = frame[top:bottom, left:right]
+    if roi.size == 0:
+        return None
+
+    hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+    lower_red_1 = np.array([0, 70, 110], dtype=np.uint8)
+    upper_red_1 = np.array([12, 255, 255], dtype=np.uint8)
+    lower_red_2 = np.array([168, 70, 110], dtype=np.uint8)
+    upper_red_2 = np.array([180, 255, 255], dtype=np.uint8)
+    mask = cv2.inRange(hsv, lower_red_1, upper_red_1) | cv2.inRange(
+        hsv,
+        lower_red_2,
+        upper_red_2,
+    )
+    kernel = np.ones((5, 5), dtype=np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    candidates: list[tuple[int, int, int, int, int]] = []
+    for contour in contours:
+        x_pos, y_pos, width, height = cv2.boundingRect(contour)
+        area = width * height
+        if area < 300 or width < 20 or height < 16:
+            continue
+        candidates.append((area, x_pos, y_pos, width, height))
+
+    if not candidates:
+        return None
+
+    button_config = get_navigation_config(context, action_name)
+    expected_point = resolve_click_position(
+        button_config,
+        (context.window.width, context.window.height),
+        context.reference_client_size,
+    )
+    if expected_point is not None:
+        _, x_pos, y_pos, width, height = min(
+            candidates,
+            key=lambda item: (
+                (left + item[1] + item[3] // 2 - expected_point[0]) ** 2
+                + (top + item[2] + item[4] // 2 - expected_point[1]) ** 2,
+                -item[0],
+            ),
+        )
+    else:
+        _, x_pos, y_pos, width, height = max(candidates, key=lambda item: item[0])
+    return left + x_pos + width // 2, top + y_pos + height // 2
+
+
+def click_seed_blue_button(context: BotContext, action_name: str, frame, label: str) -> bool:
+    if click_named_button(context, action_name, frame):
+        return True
+
+    click_point = find_blue_button_point_in_action_region(context, frame, action_name)
+    if click_point is None or context.window is None:
+        return False
+
+    context.mouse.click_relative(context.window, click_point)
+    log(f"Clicked '{action_name}' bang nhan dien mau xanh tai {click_point} ({label}).")
+    sleep_random(context.config["timing"]["click_delay_seconds"])
+    return True
+
+
+def click_detected_action_only(context: BotContext, action_name: str, frame, log_label: str | None = None) -> bool:
+    if context.window is None:
+        return False
+
+    button_match = context.detector.find_action_button(frame, action_name)
+    if button_match is None:
+        return False
+
+    button_config = get_navigation_config(context, action_name)
+    click_point = button_match.click_point
+    offset_x, offset_y = resolve_click_offset(
+        button_config,
+        (context.window.width, context.window.height),
+        context.reference_client_size,
+    )
+    if offset_x or offset_y:
+        click_point = clamp_point(
+            (click_point[0] + offset_x, click_point[1] + offset_y),
+            (context.window.width, context.window.height),
+        )
+
+    context.mouse.click_relative(context.window, click_point)
+    label = log_label or action_name
+    log(f"Clicked '{label}' chi khi template hien thi tai {click_point}.")
+    sleep_random(context.config["timing"]["click_delay_seconds"])
+    return True
+
+
+def click_sell_entry_button(context: BotContext, frame) -> bool:
+    if click_named_button(context, "sell_entry", frame):
+        return True
+
+    click_point = find_red_button_point_in_action_region(context, frame, "sell_entry")
+    if click_point is not None and context.window is not None:
+        context.mouse.click_relative(context.window, click_point)
+        log(f"Clicked 'sell_entry' bang nhan dien mau do tai {click_point}.")
+        sleep_random(context.config["timing"]["click_delay_seconds"])
+        return True
+
+    return False
 
 
 def reset_session(context: BotContext) -> None:
@@ -506,6 +670,10 @@ def is_seed_shop_menu_visible(context: BotContext, frame) -> bool:
     return context.detector.find_action_button(frame, "seed_shop_close") is not None
 
 
+def is_seed_shop_final_dialog_continue_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "seed_shop_final_dialog_continue") is not None
+
+
 def is_pumpkin_seed_row_visible(context: BotContext, frame) -> bool:
     return context.detector.find_action_button(frame, "seed_pumpkin_row") is not None
 
@@ -560,6 +728,21 @@ def sync_state_from_visible_screen(context: BotContext, frame) -> bool:
         if context.state != BotState.LEAVE_SEED_SHOP_MENU:
             log("Da o san menu NPC cua cua hang hat giong.")
             set_state(context, BotState.LEAVE_SEED_SHOP_MENU)
+            return True
+        return False
+
+    if (
+        should_sync_seed
+        and context.state in {
+            BotState.LEAVE_SEED_SHOP_MENU,
+            BotState.DISMISS_SEED_SHOP_END_DIALOG,
+        }
+        and not is_seed_shop_leave_option_visible(context, frame)
+        and is_seed_shop_final_dialog_continue_visible(context, frame)
+    ):
+        if context.state != BotState.DISMISS_SEED_SHOP_END_DIALOG:
+            log("Da o san hoi thoai cam on sau khi roi shop hat giong.")
+            set_state(context, BotState.DISMISS_SEED_SHOP_END_DIALOG)
             return True
         return False
 
@@ -928,21 +1111,6 @@ def handle_search_pumpkin_seed(context: BotContext) -> None:
         sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
         return
 
-    visible_later_index = find_visible_seed_target_index(
-        context,
-        frame,
-        context.seed_target_index + 1,
-    )
-    if visible_later_index is not None:
-        missed_name = target_name
-        context.seed_target_index = visible_later_index
-        context.state_attempts = 0
-        log(
-            f"Khong thay {missed_name}, nhung thay {get_current_seed_display_name(context)} "
-            "tren man hinh. Chuyen sang target nay."
-        )
-        return
-
     context.state_attempts += 1
     max_scrolls = int(
         context.config.get("workflow", {}).get(
@@ -999,14 +1167,14 @@ def handle_buy_pumpkin_seed(context: BotContext) -> None:
         set_state(context, BotState.SEARCH_PUMPKIN_SEED)
         return
 
+    if click_seed_blue_button(context, "seed_buy_price", frame, target_name):
+        set_state(context, BotState.CONFIRM_BUY_PUMPKIN_SEED)
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
     if is_pumpkin_seed_sold_out_visible(context, frame):
         log(f"{target_name} dang het hang. Bo qua va xu ly hat tiep theo.")
         advance_to_next_seed_target(context)
-        return
-
-    if click_named_button(context, "seed_buy_price", frame):
-        set_state(context, BotState.CONFIRM_BUY_PUMPKIN_SEED)
-        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
         return
 
     log(f"Khong thay nut gia tien de mua {target_name}. Bo qua target nay.")
@@ -1016,7 +1184,7 @@ def handle_buy_pumpkin_seed(context: BotContext) -> None:
 def handle_confirm_buy_pumpkin_seed(context: BotContext) -> None:
     frame = capture_frame(context)
     target_name = get_current_seed_display_name(context)
-    if click_named_button(context, "seed_buy_popup_submit", frame):
+    if click_seed_blue_button(context, "seed_buy_popup_submit", frame, target_name):
         log(f"Da click xac nhan mua {target_name}.")
         sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
         advance_to_next_seed_target(context)
@@ -1032,21 +1200,162 @@ def handle_confirm_buy_pumpkin_seed(context: BotContext) -> None:
 
 
 def handle_dismiss_seed_shop_end_dialog(context: BotContext) -> None:
-    clicked = False
-    for attempt in range(2):
-        frame = capture_frame(context)
-        if click_named_button(context, "seed_shop_final_dialog_continue", frame):
-            clicked = True
-            log(f"Da click ket thuc hoi thoai shop lan {attempt + 1}/2.")
-            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
-            continue
-        if attempt == 0:
+    required_dialog_clicks = int(
+        context.config.get("workflow", {}).get("seed_shop_final_dialog_clicks", 2)
+    )
+    max_attempts_per_click = 3
+    successful_clicks = 0
+    dialog_wait = context.config["timing"].get(
+        "seed_shop_final_dialog_wait_seconds",
+        [1.35, 1.75],
+    )
+
+    for dialog_index in range(required_dialog_clicks):
+        sleep_random(dialog_wait)
+
+        clicked_this_dialog = False
+        for _ in range(max_attempts_per_click):
+            frame = capture_frame(context)
+            if not is_seed_shop_final_dialog_continue_visible(context, frame):
+                if successful_clicks == 0:
+                    log("Khong con thay hoi thoai cam on cua shop hat giong. Chuyen sang luong ban.")
+                else:
+                    log("Hoi thoai cam on cua shop hat giong da bien mat. Chuyen sang luong ban.")
+                break
+
+            if click_detected_action_only(
+                context,
+                "seed_shop_final_dialog_continue",
+                frame,
+                "seed_shop_final_dialog_continue",
+            ):
+                successful_clicks += 1
+                clicked_this_dialog = True
+                log(
+                    f"Da click ket thuc hoi thoai shop lan "
+                    f"{successful_clicks}/{required_dialog_clicks}."
+                )
+                sleep_random(dialog_wait)
+                break
+
             sleep_random(context.config["timing"]["button_retry_delay_seconds"])
 
-    if not clicked:
-        log("Khong thay nut ket thuc hoi thoai shop. Tiep tuc sang luong ban.")
+        if not clicked_this_dialog:
+            break
+
+    final_frame = capture_frame(context)
+    if (
+        successful_clicks < required_dialog_clicks
+        and is_seed_shop_final_dialog_continue_visible(context, final_frame)
+    ):
+        log(
+            f"Chua xac nhan du {required_dialog_clicks} nhip hoi thoai ket thuc shop hat giong. "
+            "Van chuyen tiep sang luong ban va de recovery xu ly phan con sot."
+        )
 
     begin_sell_flow(context)
+
+
+def handle_leave_seed_shop_menu(context: BotContext) -> None:
+    click_attempts = int(
+        context.config.get("workflow", {}).get("seed_shop_leave_option_click_attempts", 3)
+    )
+    for attempt in range(click_attempts):
+        frame = capture_frame(context)
+        if (
+            is_seed_shop_final_dialog_continue_visible(context, frame)
+            and not is_seed_shop_leave_option_visible(context, frame)
+        ):
+            log("Da thay hoi thoai cam on sau khi bam 'Roi khoi'.")
+            set_state(context, BotState.DISMISS_SEED_SHOP_END_DIALOG)
+            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+            return
+
+        if not is_seed_shop_leave_option_visible(context, frame):
+            if sync_state_from_visible_screen(context, frame):
+                sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+                return
+
+        if click_named_button(context, "seed_shop_leave_option", frame):
+            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+            validation_frame = capture_frame(context)
+            leave_option_still_visible = is_seed_shop_leave_option_visible(
+                context,
+                validation_frame,
+            )
+            if (
+                is_seed_shop_final_dialog_continue_visible(context, validation_frame)
+                and not leave_option_still_visible
+            ):
+                log("Da vao hoi thoai cam on sau khi bam 'Roi khoi'.")
+                set_state(context, BotState.DISMISS_SEED_SHOP_END_DIALOG)
+                sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+                return
+
+            if leave_option_still_visible:
+                log("Da bam 'Roi khoi' nhung menu van con. Thu lai trong state hien tai.")
+                if attempt < click_attempts - 1:
+                    sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+                    continue
+                break
+
+            sleep_random(
+                context.config["timing"].get(
+                    "seed_shop_final_dialog_wait_seconds",
+                    [1.35, 1.75],
+                )
+            )
+            validation_frame = capture_frame(context)
+            if (
+                is_seed_shop_final_dialog_continue_visible(context, validation_frame)
+                and not is_seed_shop_leave_option_visible(context, validation_frame)
+            ):
+                log("Da vao hoi thoai cam on sau khi bam 'Roi khoi'.")
+                set_state(context, BotState.DISMISS_SEED_SHOP_END_DIALOG)
+                return
+
+            log("Da thoat menu NPC cua shop hat giong. Chuyen sang luong ban.")
+            begin_sell_flow(context)
+            return
+
+        if attempt < click_attempts - 1:
+            log(
+                f"Chua thay 'Roi khoi'. Thu lai trong cung state "
+                f"({attempt + 1}/{click_attempts})."
+            )
+            sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+
+    context.state_attempts += 1
+    max_retries = int(context.config["navigation"]["max_button_search_retries"])
+    if context.state_attempts >= max_retries:
+        log("Khong chon duoc 'Roi khoi' cua hang hat giong sau nhieu lan thu.")
+        set_state(context, BotState.SESSION_DONE)
+    else:
+        sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+
+
+def recover_residual_seed_ui_before_sell(context: BotContext, frame) -> bool:
+    if is_seed_shop_menu_visible(context, frame):
+        log("Con sot giao dien shop hat giong. Dong bang nut X truoc khi tim 'Ban'.")
+        if click_named_button(context, "seed_shop_close", frame):
+            return True
+
+    if is_seed_shop_leave_option_visible(context, frame):
+        log("Con sot menu NPC cua shop hat giong. Chon 'Roi khoi' truoc khi tim 'Ban'.")
+        if click_named_button(context, "seed_shop_leave_option", frame):
+            return True
+
+    if is_seed_shop_final_dialog_continue_visible(context, frame):
+        log("Con sot hoi thoai cam on sau khi roi shop hat giong. Click tiep de dong truoc khi tim 'Ban'.")
+        if click_named_button(context, "seed_shop_final_dialog_continue", frame):
+            return True
+
+    if is_seed_shop_buy_option_visible(context, frame):
+        log("Popup NPC cua shop hat giong van mo. Thu dong bang nut 'Roi khoi' truoc khi tim 'Ban'.")
+        if click_named_button(context, "seed_shop_leave_option", frame):
+            return True
+
+    return False
 
 
 def handle_open_sell_entry(context: BotContext) -> None:
@@ -1055,7 +1364,12 @@ def handle_open_sell_entry(context: BotContext) -> None:
         sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
         return
 
-    if click_named_button(context, "sell_entry", frame):
+    if recover_residual_seed_ui_before_sell(context, frame):
+        context.state_attempts = 0
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    if click_sell_entry_button(context, frame):
         set_state(context, BotState.OPEN_SELL_CART)
         sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
         return
@@ -1312,13 +1626,7 @@ def run_state_machine(context: BotContext) -> None:
                 session_done_if_exhausted=False,
             )
         elif context.state == BotState.LEAVE_SEED_SHOP_MENU:
-            handle_navigation_step(
-                context,
-                action_name="seed_shop_leave_option",
-                success_state=BotState.DISMISS_SEED_SHOP_END_DIALOG,
-                failure_reason="Khong chon duoc 'Roi khoi' cua hang hat giong",
-                session_done_if_exhausted=False,
-            )
+            handle_leave_seed_shop_menu(context)
         elif context.state == BotState.DISMISS_SEED_SHOP_END_DIALOG:
             handle_dismiss_seed_shop_end_dialog(context)
         elif context.state == BotState.OPEN_SELL_ENTRY:

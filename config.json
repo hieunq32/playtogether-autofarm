@@ -78,6 +78,10 @@
       0.6,
       1.0
     ],
+    "seed_shop_final_dialog_wait_seconds": [
+      1.7,
+      2.2
+    ],
     "post_harvest_click_wait_seconds": [
       0.7,
       1.1
@@ -328,25 +332,33 @@
       },
       "seed_shop_buy_option": {
         "template": "templates/ui/seed_shop_buy_option.png",
-        "threshold": 0.9,
+        "threshold": 0.84,
         "search_region_ratio": [
           0.58,
           0.38,
           0.96,
           0.62
         ],
-        "force_allow_fallback": false
+        "fallback_click_ratio": [
+          0.77,
+          0.5
+        ],
+        "force_allow_fallback": true
       },
       "seed_shop_leave_option": {
         "template": "templates/ui/seed_shop_leave_option.png",
-        "threshold": 0.9,
+        "threshold": 0.84,
         "search_region_ratio": [
           0.58,
           0.58,
           0.96,
           0.82
         ],
-        "force_allow_fallback": false
+        "fallback_click_ratio": [
+          0.77,
+          0.7
+        ],
+        "force_allow_fallback": true
       },
       "seed_pumpkin_row": {
         "template": "templates/ui/seed_pumpkin_row_label.png",
@@ -724,7 +736,9 @@
     "sell_when_bag_full": true,
     "buy_seed_before_sell": true,
     "seed_shop_max_scroll_attempts": 8,
-    "seed_shop_max_scroll_attempts_per_target": 5,
+    "seed_shop_max_scroll_attempts_per_target": 7,
+    "seed_shop_leave_option_click_attempts": 3,
+    "seed_shop_final_dialog_clicks": 2,
     "seed_shop_initial_wheel_delta": -420,
     "seed_shop_initial_scroll_distance_pixels": 420,
     "seed_shop_wheel_delta": -180,
@@ -750,6 +764,11 @@
         "row_action": "seed_coconut_row"
       },
       {
+        "name": "bean",
+        "display_name": "Hat cay dau",
+        "row_action": "seed_bean_row"
+      },
+      {
         "name": "starfruit",
         "display_name": "Hat khe",
         "row_action": "seed_starfruit_row"
@@ -758,11 +777,6 @@
         "name": "sugar_apple",
         "display_name": "Hat tao duong",
         "row_action": "seed_sugar_apple_row"
-      },
-      {
-        "name": "bean",
-        "display_name": "Hat cay dau",
-        "row_action": "seed_bean_row"
       }
     ],
     "stop_after_sell": false,
