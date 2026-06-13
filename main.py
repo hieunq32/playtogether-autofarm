@@ -56,6 +56,16 @@ class BotState(Enum):
     SELL_SUCCESS_OK = auto()
     SELL_CLOSE_SCREEN = auto()
     SELL_DISMISS_END_DIALOG = auto()
+    OPEN_TOOL_SHOP_ENTRY = auto()
+    OPEN_TOOL_SHOP_NPC_MENU = auto()
+    OPEN_TOOL_SHOP_BUY_OPTION = auto()
+    SEARCH_TOOL_ITEM = auto()
+    SELECT_TOOL_ITEM = auto()
+    BUY_TOOL_ITEM = auto()
+    CONFIRM_BUY_TOOL_ITEM = auto()
+    CLOSE_TOOL_SHOP = auto()
+    LEAVE_TOOL_SHOP_MENU = auto()
+    DISMISS_TOOL_SHOP_END_DIALOG = auto()
     SESSION_DONE = auto()
 
 
@@ -80,7 +90,9 @@ class BotContext:
     restart_harvest_immediately: bool = False
     sell_flow_active: bool = False
     seed_flow_active: bool = False
+    tool_flow_active: bool = False
     seed_target_index: int = 0
+    tool_target_index: int = 0
     startup_flow_bootstrapped: bool = False
 
 
@@ -425,7 +437,9 @@ def reset_session(context: BotContext) -> None:
     context.restart_harvest_immediately = False
     context.sell_flow_active = False
     context.seed_flow_active = False
+    context.tool_flow_active = False
     context.seed_target_index = 0
+    context.tool_target_index = 0
 
 
 def schedule_next_check(context: BotContext, reason: str) -> None:
@@ -442,6 +456,7 @@ def begin_harvest_session(context: BotContext) -> None:
 def begin_seed_purchase_flow(context: BotContext) -> None:
     context.sell_flow_active = False
     context.seed_flow_active = True
+    context.tool_flow_active = False
     context.seed_target_index = 0
     context.state_attempts = 0
     log("Bat dau quy trinh mua danh sach hat giong truoc khi ban nong san.")
@@ -451,9 +466,35 @@ def begin_seed_purchase_flow(context: BotContext) -> None:
 def begin_sell_flow(context: BotContext) -> None:
     context.seed_flow_active = False
     context.sell_flow_active = True
+    context.tool_flow_active = False
     context.state_attempts = 0
     log("Bat dau quy trinh ban nong san.")
     set_state(context, BotState.OPEN_SELL_ENTRY)
+
+
+def begin_tool_purchase_flow(context: BotContext) -> None:
+    context.seed_flow_active = False
+    context.sell_flow_active = False
+    context.tool_flow_active = True
+    context.tool_target_index = 0
+    context.state_attempts = 0
+    log("Bat dau quy trinh mua voi tuoi sau khi ban nong san.")
+    set_state(context, BotState.OPEN_TOOL_SHOP_ENTRY)
+
+
+def finish_sell_flow(context: BotContext) -> None:
+    if context.config.get("workflow", {}).get("buy_tools_after_sell", False):
+        begin_tool_purchase_flow(context)
+        return
+
+    context.restart_harvest_immediately = True
+    set_state(context, BotState.SESSION_DONE)
+
+
+def finish_tool_purchase_flow(context: BotContext) -> None:
+    context.tool_flow_active = False
+    context.restart_harvest_immediately = True
+    set_state(context, BotState.SESSION_DONE)
 
 
 def get_seed_targets(context: BotContext) -> list[dict]:
@@ -495,6 +536,37 @@ def find_visible_seed_target_index(context: BotContext, frame, start_index: int)
         if action_name and context.detector.find_action_button(frame, action_name) is not None:
             return index
     return None
+
+
+def get_tool_targets(context: BotContext) -> list[dict]:
+    return list(context.config.get("workflow", {}).get("tool_purchase_targets", []))
+
+
+def get_current_tool_target(context: BotContext) -> Optional[dict]:
+    targets = get_tool_targets(context)
+    if context.tool_target_index < 0 or context.tool_target_index >= len(targets):
+        return None
+    return targets[context.tool_target_index]
+
+
+def get_current_tool_display_name(context: BotContext) -> str:
+    target = get_current_tool_target(context)
+    if target is None:
+        return "voi tuoi"
+    return str(target.get("display_name") or target.get("name") or "voi tuoi")
+
+
+def advance_to_next_tool_target(context: BotContext) -> None:
+    context.tool_target_index += 1
+    context.state_attempts = 0
+    target = get_current_tool_target(context)
+    if target is None:
+        log("Da xu ly het danh sach voi tuoi. Dong cua hang cong cu va quay lai thu hoach.")
+        set_state(context, BotState.CLOSE_TOOL_SHOP)
+        return
+
+    log(f"Chuyen sang tim mua {get_current_tool_display_name(context)}.")
+    set_state(context, BotState.SEARCH_TOOL_ITEM)
 
 
 def finish_harvest_session(context: BotContext, reason: str) -> None:
@@ -674,6 +746,30 @@ def is_seed_shop_final_dialog_continue_visible(context: BotContext, frame) -> bo
     return context.detector.find_action_button(frame, "seed_shop_final_dialog_continue") is not None
 
 
+def is_tool_shop_entry_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "tool_shop_entry") is not None
+
+
+def is_tool_shop_npc_trigger_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "tool_shop_npc_trigger") is not None
+
+
+def is_tool_shop_buy_option_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "tool_shop_buy_option") is not None
+
+
+def is_tool_shop_leave_option_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "tool_shop_leave_option") is not None
+
+
+def is_tool_shop_menu_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "tool_shop_close") is not None
+
+
+def is_tool_shop_final_dialog_continue_visible(context: BotContext, frame) -> bool:
+    return context.detector.find_action_button(frame, "tool_shop_final_dialog_continue") is not None
+
+
 def is_pumpkin_seed_row_visible(context: BotContext, frame) -> bool:
     return context.detector.find_action_button(frame, "seed_pumpkin_row") is not None
 
@@ -712,9 +808,81 @@ def sync_state_from_visible_screen(context: BotContext, frame) -> bool:
         BotState.SELL_CLOSE_SCREEN,
         BotState.SELL_DISMISS_END_DIALOG,
     }
+    tool_states = {
+        BotState.OPEN_TOOL_SHOP_ENTRY,
+        BotState.OPEN_TOOL_SHOP_NPC_MENU,
+        BotState.OPEN_TOOL_SHOP_BUY_OPTION,
+        BotState.SEARCH_TOOL_ITEM,
+        BotState.SELECT_TOOL_ITEM,
+        BotState.BUY_TOOL_ITEM,
+        BotState.CONFIRM_BUY_TOOL_ITEM,
+        BotState.CLOSE_TOOL_SHOP,
+        BotState.LEAVE_TOOL_SHOP_MENU,
+        BotState.DISMISS_TOOL_SHOP_END_DIALOG,
+    }
 
     should_sync_seed = context.seed_flow_active or context.state in seed_states
     should_sync_sell = context.sell_flow_active or context.state in sell_states
+    should_sync_tool = context.tool_flow_active or context.state in tool_states
+
+    if (
+        should_sync_tool
+        and context.state in {
+            BotState.CLOSE_TOOL_SHOP,
+            BotState.LEAVE_TOOL_SHOP_MENU,
+            BotState.DISMISS_TOOL_SHOP_END_DIALOG,
+        }
+        and is_tool_shop_leave_option_visible(context, frame)
+    ):
+        if context.state != BotState.LEAVE_TOOL_SHOP_MENU:
+            log("Da o san menu NPC cua cua hang cong cu.")
+            set_state(context, BotState.LEAVE_TOOL_SHOP_MENU)
+            return True
+        return False
+
+    if (
+        should_sync_tool
+        and context.state in {
+            BotState.LEAVE_TOOL_SHOP_MENU,
+            BotState.DISMISS_TOOL_SHOP_END_DIALOG,
+        }
+        and not is_tool_shop_leave_option_visible(context, frame)
+        and is_tool_shop_final_dialog_continue_visible(context, frame)
+    ):
+        if context.state != BotState.DISMISS_TOOL_SHOP_END_DIALOG:
+            log("Da o san hoi thoai cam on sau khi roi shop cong cu.")
+            set_state(context, BotState.DISMISS_TOOL_SHOP_END_DIALOG)
+            return True
+        return False
+
+    if (
+        should_sync_tool
+        and context.state
+        not in {
+            BotState.CLOSE_TOOL_SHOP,
+            BotState.LEAVE_TOOL_SHOP_MENU,
+            BotState.DISMISS_TOOL_SHOP_END_DIALOG,
+        }
+        and is_tool_shop_menu_visible(context, frame)
+    ):
+        if context.state not in {
+            BotState.SEARCH_TOOL_ITEM,
+            BotState.SELECT_TOOL_ITEM,
+            BotState.BUY_TOOL_ITEM,
+            BotState.CONFIRM_BUY_TOOL_ITEM,
+            BotState.CLOSE_TOOL_SHOP,
+        }:
+            log("Da o san giao dien mua cong cu.")
+            set_state(context, BotState.SEARCH_TOOL_ITEM)
+            return True
+        return False
+
+    if should_sync_tool and is_tool_shop_buy_option_visible(context, frame):
+        if context.state != BotState.OPEN_TOOL_SHOP_BUY_OPTION:
+            log("Da o san menu NPC cong cu voi lua chon 'Mua'.")
+            set_state(context, BotState.OPEN_TOOL_SHOP_BUY_OPTION)
+            return True
+        return False
 
     if (
         should_sync_seed
@@ -934,6 +1102,22 @@ def bootstrap_visible_flow_on_start(context: BotContext) -> bool:
             return True
         if is_seed_shop_npc_trigger_visible(context, frame):
             set_state(context, BotState.OPEN_SEED_SHOP_NPC_MENU)
+            return True
+        return False
+    if any(
+        (
+            is_tool_shop_buy_option_visible(context, frame),
+            is_tool_shop_leave_option_visible(context, frame),
+            is_tool_shop_menu_visible(context, frame),
+            is_tool_shop_npc_trigger_visible(context, frame),
+        )
+    ):
+        log("Phat hien dang o giua quy trinh mua cong cu. Tiep tuc tu man hinh hien tai.")
+        context.tool_flow_active = True
+        if sync_state_from_visible_screen(context, frame):
+            return True
+        if is_tool_shop_npc_trigger_visible(context, frame):
+            set_state(context, BotState.OPEN_TOOL_SHOP_NPC_MENU)
             return True
         return False
     return False
@@ -1358,6 +1542,187 @@ def handle_leave_seed_shop_menu(context: BotContext) -> None:
         sleep_random(context.config["timing"]["button_retry_delay_seconds"])
 
 
+def handle_search_tool_item(context: BotContext) -> None:
+    frame = capture_frame(context)
+    if sync_state_from_visible_screen(context, frame):
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    target = get_current_tool_target(context)
+    if target is None:
+        set_state(context, BotState.CLOSE_TOOL_SHOP)
+        return
+
+    target_name = get_current_tool_display_name(context)
+    target_action = str(target.get("row_action", ""))
+    if not target_action:
+        log(f"Target {target_name} chua cau hinh row_action. Bo qua.")
+        advance_to_next_tool_target(context)
+        return
+
+    if click_named_button(context, target_action, frame):
+        set_state(context, BotState.SELECT_TOOL_ITEM)
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    context.state_attempts += 1
+    max_retries = int(context.config["navigation"]["max_button_search_retries"])
+    if context.state_attempts >= max_retries:
+        log(f"Khong tim thay {target_name} trong cua hang cong cu. Bo qua target nay.")
+        advance_to_next_tool_target(context)
+    else:
+        sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+
+
+def handle_select_tool_item(context: BotContext) -> None:
+    set_state(context, BotState.BUY_TOOL_ITEM)
+
+
+def handle_buy_tool_item(context: BotContext) -> None:
+    target_name = get_current_tool_display_name(context)
+    if get_current_tool_target(context) is None:
+        set_state(context, BotState.CLOSE_TOOL_SHOP)
+        return
+
+    workflow_config = context.config.get("workflow", {})
+    max_buy_button_attempts = int(workflow_config.get("tool_buy_button_retry_attempts", 4))
+    retry_delay = context.config["timing"].get(
+        "seed_buy_button_retry_delay_seconds",
+        context.config["timing"]["button_retry_delay_seconds"],
+    )
+
+    for attempt in range(max(1, max_buy_button_attempts)):
+        frame = capture_frame(context)
+        if not is_tool_shop_menu_visible(context, frame):
+            log(f"Chua thay giao dien shop khi xu ly {target_name}. Quay lai tim trong danh sach cong cu.")
+            set_state(context, BotState.SEARCH_TOOL_ITEM)
+            return
+
+        if click_seed_blue_button(context, "tool_buy_price", frame, target_name):
+            set_state(context, BotState.CONFIRM_BUY_TOOL_ITEM)
+            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+            return
+
+        if attempt < max_buy_button_attempts - 1:
+            log(
+                f"Chua thay nut xanh mua {target_name}. "
+                f"Doi panel ben phai on dinh lan {attempt + 1}/{max_buy_button_attempts}."
+            )
+            sleep_random(retry_delay)
+
+    log(f"Khong thay nut xanh de mua {target_name}. Xem nhu het hang va bo qua.")
+    advance_to_next_tool_target(context)
+
+
+def handle_confirm_buy_tool_item(context: BotContext) -> None:
+    frame = capture_frame(context)
+    target_name = get_current_tool_display_name(context)
+    if click_seed_blue_button(context, "tool_buy_popup_submit", frame, target_name):
+        log(f"Da click xac nhan mua {target_name}.")
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        advance_to_next_tool_target(context)
+        return
+
+    context.state_attempts += 1
+    max_retries = int(context.config["navigation"]["max_button_search_retries"])
+    if context.state_attempts >= max_retries:
+        log(f"Khong xac nhan duoc popup mua {target_name}. Bo qua target nay.")
+        advance_to_next_tool_target(context)
+    else:
+        sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+
+
+def handle_dismiss_tool_shop_end_dialog(context: BotContext) -> None:
+    required_dialog_clicks = int(
+        context.config.get("workflow", {}).get("tool_shop_final_dialog_clicks", 2)
+    )
+    dialog_wait = context.config["timing"].get(
+        "seed_shop_final_dialog_wait_seconds",
+        [1.35, 1.75],
+    )
+
+    for dialog_index in range(required_dialog_clicks):
+        sleep_random(dialog_wait)
+        frame = capture_frame(context)
+        if not is_tool_shop_final_dialog_continue_visible(context, frame):
+            log("Hoi thoai ket thuc shop cong cu da bien mat. Quay lai luong thu hoach.")
+            finish_tool_purchase_flow(context)
+            return
+
+        if click_detected_action_only(
+            context,
+            "tool_shop_final_dialog_continue",
+            frame,
+            "tool_shop_final_dialog_continue",
+        ):
+            log(f"Da click ket thuc hoi thoai shop cong cu lan {dialog_index + 1}/{required_dialog_clicks}.")
+            continue
+
+        break
+
+    finish_tool_purchase_flow(context)
+
+
+def handle_leave_tool_shop_menu(context: BotContext) -> None:
+    click_attempts = int(
+        context.config.get("workflow", {}).get("tool_shop_leave_option_click_attempts", 3)
+    )
+    for attempt in range(click_attempts):
+        frame = capture_frame(context)
+        if (
+            is_tool_shop_final_dialog_continue_visible(context, frame)
+            and not is_tool_shop_leave_option_visible(context, frame)
+        ):
+            log("Da thay hoi thoai cam on sau khi bam 'Khong' shop cong cu.")
+            set_state(context, BotState.DISMISS_TOOL_SHOP_END_DIALOG)
+            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+            return
+
+        if not is_tool_shop_leave_option_visible(context, frame):
+            if sync_state_from_visible_screen(context, frame):
+                sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+                return
+
+        if click_named_button(context, "tool_shop_leave_option", frame):
+            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+            validation_frame = capture_frame(context)
+            leave_option_still_visible = is_tool_shop_leave_option_visible(context, validation_frame)
+            if (
+                is_tool_shop_final_dialog_continue_visible(context, validation_frame)
+                and not leave_option_still_visible
+            ):
+                log("Da vao hoi thoai cam on sau khi bam 'Khong' shop cong cu.")
+                set_state(context, BotState.DISMISS_TOOL_SHOP_END_DIALOG)
+                sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+                return
+
+            if leave_option_still_visible:
+                log("Da bam 'Khong' nhung menu shop cong cu van con. Thu lai trong state hien tai.")
+                if attempt < click_attempts - 1:
+                    sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+                    continue
+                break
+
+            log("Da thoat menu NPC cua shop cong cu. Quay lai luong thu hoach.")
+            finish_tool_purchase_flow(context)
+            return
+
+        if attempt < click_attempts - 1:
+            log(
+                f"Chua thay 'Khong' cua shop cong cu. Thu lai trong cung state "
+                f"({attempt + 1}/{click_attempts})."
+            )
+            sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+
+    context.state_attempts += 1
+    max_retries = int(context.config["navigation"]["max_button_search_retries"])
+    if context.state_attempts >= max_retries:
+        log("Khong thoat duoc cua hang cong cu sau nhieu lan thu. Van quay lai luong thu hoach.")
+        finish_tool_purchase_flow(context)
+    else:
+        sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+
+
 def recover_residual_seed_ui_before_sell(context: BotContext, frame) -> bool:
     if is_seed_shop_menu_visible(context, frame):
         log("Con sot giao dien shop hat giong. Dong bang nut X truoc khi tim 'Ban'.")
@@ -1513,8 +1878,7 @@ def handle_sell_end_dialog(context: BotContext) -> None:
     frame = capture_frame(context)
     if is_sell_cart_visible(context, frame):
         log("Da thoat khoi popup ban nong san.")
-        context.restart_harvest_immediately = True
-        set_state(context, BotState.SESSION_DONE)
+        finish_sell_flow(context)
         return
 
     if not any(
@@ -1530,8 +1894,7 @@ def handle_sell_end_dialog(context: BotContext) -> None:
         )
     ):
         log("Da thoat khoi quy trinh ban va quay lai man hinh chinh.")
-        context.restart_harvest_immediately = True
-        set_state(context, BotState.SESSION_DONE)
+        finish_sell_flow(context)
         return
 
     if is_npc_dialog_visible(context, frame):
@@ -1544,8 +1907,7 @@ def handle_sell_end_dialog(context: BotContext) -> None:
     max_retries = int(context.config["navigation"]["max_button_search_retries"])
     if context.state_attempts >= max_retries:
         log("Khong dong duoc hoi thoai ket thuc sau khi ban.")
-        context.restart_harvest_immediately = True
-        set_state(context, BotState.SESSION_DONE)
+        finish_sell_flow(context)
     else:
         sleep_random(context.config["timing"]["button_retry_delay_seconds"])
 
@@ -1729,12 +2091,67 @@ def run_state_machine(context: BotContext) -> None:
             )
         elif context.state == BotState.SELL_DISMISS_END_DIALOG:
             handle_sell_end_dialog(context)
+        elif context.state == BotState.OPEN_TOOL_SHOP_ENTRY:
+            handle_navigation_step(
+                context,
+                action_name="tool_shop_entry",
+                success_state=BotState.OPEN_TOOL_SHOP_NPC_MENU,
+                failure_reason="Khong mo duoc 'Cua hang cong cu'",
+                already_success_predicate=lambda current_context, current_frame: (
+                    is_tool_shop_npc_trigger_visible(current_context, current_frame)
+                    or is_tool_shop_buy_option_visible(current_context, current_frame)
+                    or is_tool_shop_menu_visible(current_context, current_frame)
+                ),
+                session_done_if_exhausted=False,
+                retry_forever=True,
+            )
+        elif context.state == BotState.OPEN_TOOL_SHOP_NPC_MENU:
+            handle_navigation_step(
+                context,
+                action_name="tool_shop_npc_trigger",
+                success_state=BotState.OPEN_TOOL_SHOP_BUY_OPTION,
+                failure_reason="Khong mo duoc menu NPC cua hang cong cu",
+                already_success_predicate=is_tool_shop_buy_option_visible,
+                session_done_if_exhausted=False,
+            )
+        elif context.state == BotState.OPEN_TOOL_SHOP_BUY_OPTION:
+            handle_navigation_step(
+                context,
+                action_name="tool_shop_buy_option",
+                success_state=BotState.SEARCH_TOOL_ITEM,
+                failure_reason="Khong mo duoc menu mua cong cu",
+                already_success_predicate=is_tool_shop_menu_visible,
+                session_done_if_exhausted=False,
+                retry_forever=True,
+            )
+        elif context.state == BotState.SEARCH_TOOL_ITEM:
+            handle_search_tool_item(context)
+        elif context.state == BotState.SELECT_TOOL_ITEM:
+            handle_select_tool_item(context)
+        elif context.state == BotState.BUY_TOOL_ITEM:
+            handle_buy_tool_item(context)
+        elif context.state == BotState.CONFIRM_BUY_TOOL_ITEM:
+            handle_confirm_buy_tool_item(context)
+        elif context.state == BotState.CLOSE_TOOL_SHOP:
+            handle_navigation_step(
+                context,
+                action_name="tool_shop_close",
+                success_state=BotState.LEAVE_TOOL_SHOP_MENU,
+                failure_reason="Khong dong duoc cua hang cong cu",
+                already_success_predicate=is_tool_shop_leave_option_visible,
+                session_done_if_exhausted=False,
+            )
+        elif context.state == BotState.LEAVE_TOOL_SHOP_MENU:
+            handle_leave_tool_shop_menu(context)
+        elif context.state == BotState.DISMISS_TOOL_SHOP_END_DIALOG:
+            handle_dismiss_tool_shop_end_dialog(context)
         elif context.state == BotState.SESSION_DONE:
             log("Hoan tat quy trinh tu dong.")
             if context.config.get("workflow", {}).get("stop_after_sell", True):
                 break
             if context.restart_harvest_immediately:
                 context.sell_flow_active = False
+                context.tool_flow_active = False
                 delay_range = context.config.get("workflow", {}).get(
                     "restart_after_sell_delay_seconds",
                     [0.8, 1.6],
