@@ -737,6 +737,7 @@
     "buy_seed_before_sell": true,
     "seed_shop_max_scroll_attempts": 8,
     "seed_shop_max_scroll_attempts_per_target": 7,
+    "seed_buy_button_retry_attempts": 4,
     "seed_shop_leave_option_click_attempts": 3,
     "seed_shop_final_dialog_clicks": 2,
     "seed_shop_initial_wheel_delta": -420,

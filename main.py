@@ -1156,20 +1156,44 @@ def handle_select_pumpkin_seed(context: BotContext) -> None:
 
 
 def handle_buy_pumpkin_seed(context: BotContext) -> None:
-    frame = capture_frame(context)
     target_name = get_current_seed_display_name(context)
     if get_current_seed_target(context) is None:
         set_state(context, BotState.CLOSE_SEED_SHOP)
         return
 
+    workflow_config = context.config.get("workflow", {})
+    max_buy_button_attempts = int(workflow_config.get("seed_buy_button_retry_attempts", 4))
+    retry_delay = context.config["timing"].get(
+        "seed_buy_button_retry_delay_seconds",
+        context.config["timing"]["button_retry_delay_seconds"],
+    )
+
+    last_frame = None
+    for attempt in range(max(1, max_buy_button_attempts)):
+        frame = capture_frame(context)
+        last_frame = frame
+
+        if not is_seed_shop_menu_visible(context, frame):
+            log(f"Chua thay giao dien shop khi xu ly {target_name}. Quay lai tim trong danh sach hat giong.")
+            set_state(context, BotState.SEARCH_PUMPKIN_SEED)
+            return
+
+        if click_seed_blue_button(context, "seed_buy_price", frame, target_name):
+            set_state(context, BotState.CONFIRM_BUY_PUMPKIN_SEED)
+            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+            return
+
+        if attempt < max_buy_button_attempts - 1:
+            log(
+                f"Chua thay nut xanh mua {target_name}. "
+                f"Doi panel ben phai on dinh lan {attempt + 1}/{max_buy_button_attempts}."
+            )
+            sleep_random(retry_delay)
+
+    frame = last_frame if last_frame is not None else capture_frame(context)
     if not is_seed_shop_menu_visible(context, frame):
         log(f"Chua thay giao dien shop khi xu ly {target_name}. Quay lai tim trong danh sach hat giong.")
         set_state(context, BotState.SEARCH_PUMPKIN_SEED)
-        return
-
-    if click_seed_blue_button(context, "seed_buy_price", frame, target_name):
-        set_state(context, BotState.CONFIRM_BUY_PUMPKIN_SEED)
-        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
         return
 
     if is_pumpkin_seed_sold_out_visible(context, frame):
