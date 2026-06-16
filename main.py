@@ -93,6 +93,8 @@ class BotContext:
     tool_flow_active: bool = False
     seed_target_index: int = 0
     tool_target_index: int = 0
+    seed_shop_position_reset_done: bool = False
+    seed_shop_search_recovery_count: int = 0
     startup_flow_bootstrapped: bool = False
 
 
@@ -224,12 +226,12 @@ def click_named_button(context: BotContext, action_name: str, frame=None) -> boo
     if frame is None:
         frame = capture_frame(context)
 
-    button_match = context.detector.find_action_button(frame, action_name)
+    button_match, match_source = find_action_button_stable(context, action_name, frame)
     button_config = get_navigation_config(context, action_name)
 
     if button_match is not None:
         click_point = button_match.click_point
-        source = "template"
+        source = match_source
     else:
         allow_fallback = context.config["navigation"].get("allow_fallback_clicks", False)
         if button_config.get("force_allow_fallback", False):
@@ -264,6 +266,33 @@ def click_named_button(context: BotContext, action_name: str, frame=None) -> boo
     log(f"Clicked '{action_name}' bang {source} tai {click_point}.")
     sleep_random(context.config["timing"]["click_delay_seconds"])
     return True
+
+
+def find_action_button_stable(context: BotContext, action_name: str, frame=None):
+    if frame is None:
+        frame = capture_frame(context)
+
+    button_match = context.detector.find_action_button(frame, action_name)
+    if button_match is not None:
+        return button_match, "template"
+
+    matching_config = context.config.get("matching", {})
+    retry_count = int(matching_config.get("button_extra_frame_retries", 0))
+    if retry_count <= 0:
+        return None, "template"
+
+    retry_delay = matching_config.get(
+        "button_extra_frame_retry_delay_seconds",
+        context.config["timing"].get("button_retry_delay_seconds", [0.3, 0.5]),
+    )
+    for retry_index in range(retry_count):
+        sleep_random(retry_delay)
+        retry_frame = capture_frame(context)
+        button_match = context.detector.find_action_button(retry_frame, action_name)
+        if button_match is not None:
+            return button_match, f"template retry-frame {retry_index + 1}"
+
+    return None, "template"
 
 
 def resolve_action_search_region(context: BotContext, action_name: str, frame) -> tuple[int, int, int, int]:
@@ -389,7 +418,7 @@ def click_detected_action_only(context: BotContext, action_name: str, frame, log
     if context.window is None:
         return False
 
-    button_match = context.detector.find_action_button(frame, action_name)
+    button_match, _ = find_action_button_stable(context, action_name, frame)
     if button_match is None:
         return False
 
@@ -440,6 +469,8 @@ def reset_session(context: BotContext) -> None:
     context.tool_flow_active = False
     context.seed_target_index = 0
     context.tool_target_index = 0
+    context.seed_shop_position_reset_done = False
+    context.seed_shop_search_recovery_count = 0
 
 
 def schedule_next_check(context: BotContext, reason: str) -> None:
@@ -458,6 +489,8 @@ def begin_seed_purchase_flow(context: BotContext) -> None:
     context.seed_flow_active = True
     context.tool_flow_active = False
     context.seed_target_index = 0
+    context.seed_shop_position_reset_done = False
+    context.seed_shop_search_recovery_count = 0
     context.state_attempts = 0
     log("Bat dau quy trinh mua danh sach hat giong truoc khi ban nong san.")
     set_state(context, BotState.OPEN_SEED_SHOP_ENTRY)
@@ -497,6 +530,56 @@ def finish_tool_purchase_flow(context: BotContext) -> None:
     set_state(context, BotState.SESSION_DONE)
 
 
+def log_startup_profile(context: BotContext, reference_width: int, reference_height: int) -> None:
+    background_config = context.config.get("background", {})
+    if context.capture.background_enabled and context.mouse.background_enabled:
+        device = str(background_config.get("device", "unknown"))
+        adb_size = background_config.get("adb_screen_size")
+        render_ratio = background_config.get("render_region_ratio", [0.0, 0.0, 1.0, 1.0])
+        if isinstance(adb_size, list) and len(adb_size) == 2:
+            adb_width, adb_height = adb_size
+            try:
+                rx1, ry1, rx2, ry2 = [float(v) for v in render_ratio]
+                left = int(round(adb_width * rx1))
+                top = int(round(adb_height * ry1))
+                right = int(round(adb_width * rx2))
+                bottom = int(round(adb_height * ry2))
+                crop_w = max(1, right - left)
+                crop_h = max(1, bottom - top)
+                log(
+                    "Startup: ADB-first. Device=" + device
+                    + f", adb_screen={int(adb_width)}x{int(adb_height)}"
+                    + f", render_region=({left},{top},{right},{bottom}) size={crop_w}x{crop_h}"
+                )
+            except (TypeError, ValueError):
+                log(
+                    "Startup: ADB-first. Device="
+                    + device
+                    + f", adb_screen={int(adb_size[0])}x{int(adb_size[1])}"
+                    + ", render_region=invalid. Kiem tra config background.render_region_ratio."
+                )
+        else:
+            log(
+                "Startup: ADB-first. Device="
+                + device
+                + f", adb_screen={int(reference_width)}x{int(reference_height)} (fallback)"
+                + ", render_region=chua co trong config."
+            )
+        log(
+            "Startup: reference_client_size="
+            + f"{reference_width}x{reference_height}"
+            + ", use_ratio_chinh_xac cho click/scan theo tile."
+        )
+        return
+
+    log("Startup: dang doi phat hien BlueStacks qua window capture.")
+    log(
+        "Startup: reference_client_size="
+        + f"{reference_width}x{reference_height}"
+        + ", can giu BlueStacks theo do luong nay cho cac nhieu flow."
+    )
+
+
 def get_seed_targets(context: BotContext) -> list[dict]:
     return list(context.config.get("workflow", {}).get("seed_purchase_targets", []))
 
@@ -518,6 +601,7 @@ def get_current_seed_display_name(context: BotContext) -> str:
 def advance_to_next_seed_target(context: BotContext) -> None:
     context.seed_target_index += 1
     context.state_attempts = 0
+    context.seed_shop_search_recovery_count = 0
     target = get_current_seed_target(context)
     if target is None:
         log("Da xu ly het danh sach hat giong. Dong shop va tiep tuc ban nong san.")
@@ -536,6 +620,33 @@ def find_visible_seed_target_index(context: BotContext, frame, start_index: int)
         if action_name and context.detector.find_action_button(frame, action_name) is not None:
             return index
     return None
+
+
+def reset_seed_shop_list_position_once(context: BotContext, reason: str) -> bool:
+    if context.window is None or context.seed_shop_position_reset_done:
+        return False
+
+    workflow_config = context.config.get("workflow", {})
+    reset_steps = int(workflow_config.get("seed_shop_start_reset_steps", 3))
+    if reset_steps <= 0:
+        context.seed_shop_position_reset_done = True
+        return False
+
+    seed_scroll_ratio = workflow_config.get("seed_shop_scroll_point_ratio", [0.322, 0.577])
+    hover_point = (
+        round(context.window.width * float(seed_scroll_ratio[0])),
+        round(context.window.height * float(seed_scroll_ratio[1])),
+    )
+    wheel_delta = int(workflow_config.get("seed_shop_reset_wheel_delta", 600))
+    distance_pixels = int(workflow_config.get("seed_shop_reset_scroll_distance_pixels", 360))
+    log(f"Reset vi tri danh sach shop hat giong mot lan ({reason}).")
+    for _ in range(reset_steps):
+        context.mouse.scroll_relative(context.window, hover_point, wheel_delta, distance_pixels)
+        sleep_random(context.config["timing"]["scroll_delay_seconds"])
+
+    context.seed_shop_position_reset_done = True
+    context.state_attempts = 0
+    return True
 
 
 def get_tool_targets(context: BotContext) -> list[dict]:
@@ -739,7 +850,25 @@ def is_seed_shop_leave_option_visible(context: BotContext, frame) -> bool:
 
 
 def is_seed_shop_menu_visible(context: BotContext, frame) -> bool:
-    return context.detector.find_action_button(frame, "seed_shop_close") is not None
+    if is_fruit_list_visible(context, frame):
+        return False
+    if context.detector.find_action_button(frame, "seed_shop_close") is None:
+        return False
+    if any(
+        context.detector.find_action_button(frame, action_name) is not None
+        for action_name in (
+            "seed_pumpkin_row",
+            "seed_watermelon_row",
+            "seed_coconut_row",
+            "seed_bean_row",
+            "seed_starfruit_row",
+            "seed_sugar_apple_row",
+            "seed_buy_price",
+            "seed_pumpkin_sold_out",
+        )
+    ):
+        return True
+    return context.seed_flow_active
 
 
 def is_seed_shop_final_dialog_continue_visible(context: BotContext, frame) -> bool:
@@ -763,7 +892,21 @@ def is_tool_shop_leave_option_visible(context: BotContext, frame) -> bool:
 
 
 def is_tool_shop_menu_visible(context: BotContext, frame) -> bool:
-    return context.detector.find_action_button(frame, "tool_shop_close") is not None
+    if is_fruit_list_visible(context, frame):
+        return False
+    if context.detector.find_action_button(frame, "tool_shop_close") is None:
+        return False
+    if any(
+        context.detector.find_action_button(frame, action_name) is not None
+        for action_name in (
+            "tool_watering_basic_row",
+            "tool_watering_premium_row",
+            "tool_watering_super_row",
+            "tool_buy_price",
+        )
+    ):
+        return True
+    return context.tool_flow_active
 
 
 def is_tool_shop_final_dialog_continue_visible(context: BotContext, frame) -> bool:
@@ -824,6 +967,13 @@ def sync_state_from_visible_screen(context: BotContext, frame) -> bool:
     should_sync_seed = context.seed_flow_active or context.state in seed_states
     should_sync_sell = context.sell_flow_active or context.state in sell_states
     should_sync_tool = context.tool_flow_active or context.state in tool_states
+
+    if (should_sync_seed or should_sync_tool) and is_fruit_list_visible(context, frame):
+        log("Dang thay danh sach thu hoach trong khi state shop dang active. Chuyen ve luong thu hoach.")
+        context.seed_flow_active = False
+        context.tool_flow_active = False
+        set_state(context, BotState.SEARCH_TARGET_ROWS)
+        return True
 
     if (
         should_sync_tool
@@ -1073,6 +1223,22 @@ def bootstrap_visible_flow_on_start(context: BotContext) -> bool:
         log("Da dong popup thong bao thu hoach luc khoi dong. Tiep tuc danh sach hien tai.")
         return True
 
+    if is_fruit_list_visible(context, frame):
+        log("Phat hien dang o danh sach thu hoach. Tiep tuc tim dong trai cay.")
+        context.sell_flow_active = False
+        context.seed_flow_active = False
+        context.tool_flow_active = False
+        set_state(context, BotState.SEARCH_TARGET_ROWS)
+        return True
+
+    if is_harvest_popup_visible(context, frame):
+        log("Phat hien dang o popup quan ly nha. Tiep tuc click 'Thu hoach trai'.")
+        context.sell_flow_active = False
+        context.seed_flow_active = False
+        context.tool_flow_active = False
+        set_state(context, BotState.OPEN_HARVEST_POPUP)
+        return True
+
     if any(
         (
             is_sell_success_ok_visible(context, frame),
@@ -1272,6 +1438,75 @@ def handle_bag_full(context: BotContext) -> None:
     finish_harvest_session(context, "Day tui")
 
 
+def click_seed_shop_entry_fallback(context: BotContext) -> bool:
+    if context.window is None:
+        return False
+
+    button_config = get_navigation_config(context, "seed_shop_entry")
+    click_point = resolve_click_position(
+        button_config,
+        (context.window.width, context.window.height),
+        context.reference_client_size,
+    )
+    if click_point is None:
+        return False
+
+    context.mouse.click_relative(context.window, click_point)
+    log(f"Clicked 'seed_shop_entry' bang fallback sau khi da recovery tai {click_point}.")
+    sleep_random(context.config["timing"]["click_delay_seconds"])
+    return True
+
+
+def handle_open_seed_shop_entry(context: BotContext) -> None:
+    frame = capture_frame(context)
+
+    if context.detector.find_message(frame, "bag_full") is not None:
+        log("Con sot popup day tui truoc khi mo shop hat giong. Dong bang nut X.")
+        if click_named_button(context, "close_harvest_popup", frame):
+            context.state_attempts = 0
+            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+            return
+
+    if is_fruit_list_visible(context, frame):
+        log("Con sot danh sach thu hoach truoc khi mo shop hat giong. Dong bang nut X.")
+        if click_named_button(context, "close_harvest_popup", frame):
+            context.state_attempts = 0
+            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+            return
+
+    if is_harvest_popup_visible(context, frame):
+        log("Con sot popup quan ly nha truoc khi mo shop hat giong. Dong bang nut X.")
+        if click_detected_action_only(context, "close_harvest_popup", frame):
+            context.state_attempts = 0
+            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+            return
+
+    if sync_state_from_visible_screen(context, frame):
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    if click_named_button(context, "seed_shop_entry", frame):
+        set_state(context, BotState.OPEN_SEED_SHOP_NPC_MENU)
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    context.state_attempts += 1
+    workflow_config = context.config.get("workflow", {})
+    fallback_after = int(workflow_config.get("seed_shop_entry_fallback_after_attempts", 4))
+    max_retries = int(context.config["navigation"]["max_button_search_retries"])
+
+    if context.state_attempts >= fallback_after and click_seed_shop_entry_fallback(context):
+        set_state(context, BotState.OPEN_SEED_SHOP_NPC_MENU)
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
+    if context.state_attempts >= max_retries:
+        log("Chua tim thay 'Cua hang hat giong'. Tiep tuc scan va recovery thay vi ket thuc bot.")
+        context.state_attempts = 0
+
+    sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+
+
 def handle_search_pumpkin_seed(context: BotContext) -> None:
     frame = capture_frame(context)
     if sync_state_from_visible_screen(context, frame):
@@ -1290,6 +1525,10 @@ def handle_search_pumpkin_seed(context: BotContext) -> None:
         advance_to_next_seed_target(context)
         return
 
+    if context.seed_target_index == 0 and reset_seed_shop_list_position_once(context, "bat dau flow"):
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+        return
+
     if click_named_button(context, target_action, frame):
         set_state(context, BotState.SELECT_PUMPKIN_SEED)
         sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
@@ -1303,6 +1542,18 @@ def handle_search_pumpkin_seed(context: BotContext) -> None:
         )
     )
     if context.state_attempts > max_scrolls:
+        max_recoveries = int(context.config.get("workflow", {}).get("seed_shop_target_reset_recoveries", 1))
+        if context.seed_shop_search_recovery_count < max_recoveries:
+            context.seed_shop_search_recovery_count += 1
+            context.seed_shop_position_reset_done = False
+            log(
+                f"Chua tim thay {target_name} sau {max_scrolls} lan scroll. "
+                "Reset danh sach va tim lai target nay."
+            )
+            if reset_seed_shop_list_position_once(context, f"recovery {context.seed_shop_search_recovery_count}"):
+                sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+                return
+
         log(f"Khong tim thay {target_name} trong shop. Bo qua target nay.")
         advance_to_next_seed_target(context)
         return
@@ -1962,19 +2213,7 @@ def run_state_machine(context: BotContext) -> None:
         elif context.state == BotState.BAG_FULL:
             handle_bag_full(context)
         elif context.state == BotState.OPEN_SEED_SHOP_ENTRY:
-            handle_navigation_step(
-                context,
-                action_name="seed_shop_entry",
-                success_state=BotState.OPEN_SEED_SHOP_NPC_MENU,
-                failure_reason="Khong mo duoc 'Cua hang hat giong'",
-                already_success_predicate=lambda current_context, current_frame: (
-                    is_seed_shop_npc_trigger_visible(current_context, current_frame)
-                    or is_seed_shop_buy_option_visible(current_context, current_frame)
-                    or is_seed_shop_menu_visible(current_context, current_frame)
-                ),
-                session_done_if_exhausted=False,
-                retry_forever=True,
-            )
+            handle_open_seed_shop_entry(context)
         elif context.state == BotState.OPEN_SEED_SHOP_NPC_MENU:
             handle_navigation_step(
                 context,
@@ -2181,6 +2420,12 @@ def main() -> None:
             mouse=mouse,
             reference_client_size=get_reference_client_size(config),
         )
+        reference_width, reference_height = (
+            context.reference_client_size
+            if context.reference_client_size is not None
+            else (0, 0)
+        )
+        log_startup_profile(context, reference_width, reference_height)
         if background_config.get("enabled", False):
             mode = str(background_config.get("mode", "adb_first"))
             log(f"ADB {mode} da san sang. {adb_client.describe()}")
