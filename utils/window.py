@@ -77,6 +77,48 @@ def find_bluestacks_window(title_keywords) -> Optional[GameWindow]:
     return candidates[0]
 
 
+def resize_window_client_area(
+    window: GameWindow,
+    target_width: int,
+    target_height: int,
+    tolerance_pixels: int = 3,
+) -> Optional[GameWindow]:
+    if target_width <= 0 or target_height <= 0:
+        return None
+
+    if (
+        abs(window.width - target_width) <= tolerance_pixels
+        and abs(window.height - target_height) <= tolerance_pixels
+    ):
+        return window
+
+    if win32gui.IsIconic(window.hwnd):
+        win32gui.ShowWindow(window.hwnd, win32con.SW_RESTORE)
+
+    outer_left, outer_top, outer_right, outer_bottom = win32gui.GetWindowRect(window.hwnd)
+    client_left, client_top, client_right, client_bottom = win32gui.GetClientRect(window.hwnd)
+    current_client_width = max(1, client_right - client_left)
+    current_client_height = max(1, client_bottom - client_top)
+    outer_width = max(1, outer_right - outer_left)
+    outer_height = max(1, outer_bottom - outer_top)
+
+    border_width = outer_width - current_client_width
+    border_height = outer_height - current_client_height
+    target_outer_width = max(1, target_width + border_width)
+    target_outer_height = max(1, target_height + border_height)
+
+    win32gui.SetWindowPos(
+        window.hwnd,
+        None,
+        outer_left,
+        outer_top,
+        target_outer_width,
+        target_outer_height,
+        win32con.SWP_NOZORDER | win32con.SWP_NOACTIVATE,
+    )
+    return _get_client_area(window.hwnd)
+
+
 def is_window_foreground(window: GameWindow) -> bool:
     return win32gui.GetForegroundWindow() == window.hwnd
 

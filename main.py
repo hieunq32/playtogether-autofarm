@@ -23,7 +23,13 @@ from utils.input_controller import MouseController
 from utils.logger import log
 from utils.screen import ScreenCapture
 from utils.timing import random_in_range, sleep_random
-from utils.window import GameWindow, activate_window, find_bluestacks_window, is_window_foreground
+from utils.window import (
+    GameWindow,
+    activate_window,
+    find_bluestacks_window,
+    is_window_foreground,
+    resize_window_client_area,
+)
 
 
 class BotState(Enum):
@@ -400,6 +406,60 @@ def find_red_button_point_in_action_region(
     return left + x_pos + width // 2, top + y_pos + height // 2
 
 
+def find_orange_button_point_in_action_region(
+    context: BotContext,
+    frame,
+    action_name: str,
+) -> Optional[tuple[int, int]]:
+    left, top, right, bottom = resolve_action_search_region(context, action_name, frame)
+    roi = frame[top:bottom, left:right]
+    if roi.size == 0:
+        return None
+
+    hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+    lower_orange = np.array([8, 95, 120], dtype=np.uint8)
+    upper_orange = np.array([25, 255, 255], dtype=np.uint8)
+    mask = cv2.inRange(hsv, lower_orange, upper_orange)
+    kernel = np.ones((5, 5), dtype=np.uint8)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    candidates: list[tuple[int, int, int, int, int]] = []
+    for contour in contours:
+        x_pos, y_pos, width, height = cv2.boundingRect(contour)
+        area = width * height
+        if area < 500 or width < 30 or height < 16:
+            continue
+        candidates.append((area, x_pos, y_pos, width, height))
+
+    if not candidates:
+        return None
+
+    button_config = get_navigation_config(context, action_name)
+    expected_point = (
+        resolve_click_position(
+            button_config,
+            (context.window.width, context.window.height),
+            context.reference_client_size,
+        )
+        if context.window is not None
+        else None
+    )
+    if expected_point is not None:
+        _, x_pos, y_pos, width, height = min(
+            candidates,
+            key=lambda item: (
+                (left + item[1] + item[3] // 2 - expected_point[0]) ** 2
+                + (top + item[2] + item[4] // 2 - expected_point[1]) ** 2,
+                -item[0],
+            ),
+        )
+    else:
+        _, x_pos, y_pos, width, height = max(candidates, key=lambda item: item[0])
+    return left + x_pos + width // 2, top + y_pos + height // 2
+
+
 def click_seed_blue_button(context: BotContext, action_name: str, frame, label: str) -> bool:
     if click_named_button(context, action_name, frame):
         return True
@@ -577,6 +637,39 @@ def log_startup_profile(context: BotContext, reference_width: int, reference_hei
         "Startup: reference_client_size="
         + f"{reference_width}x{reference_height}"
         + ", can giu BlueStacks theo do luong nay cho cac nhieu flow."
+    )
+
+
+def auto_resize_bluestacks_window(config: dict, reference_size: Optional[tuple[int, int]]) -> None:
+    window_config = config.get("window", {})
+    if not window_config.get("auto_resize_on_start", False):
+        return
+    if reference_size is None:
+        log("Startup: bo qua auto resize BlueStacks vi chua co reference_client_size.")
+        return
+
+    window = find_bluestacks_window(window_config.get("title_keywords", []))
+    if window is None:
+        log("Startup: chua tim thay cua so BlueStacks de auto resize.")
+        return
+
+    target_width, target_height = reference_size
+    tolerance = int(window_config.get("auto_resize_tolerance_pixels", 3))
+    log(
+        "Startup: BlueStacks hien tai "
+        + f"{window.width}x{window.height}, target={target_width}x{target_height}."
+    )
+    resized = resize_window_client_area(window, target_width, target_height, tolerance)
+    if resized is None:
+        log("Startup: auto resize BlueStacks khong thuc hien duoc.")
+        return
+
+    wait_seconds = float(window_config.get("auto_resize_settle_seconds", 0.4))
+    if wait_seconds > 0:
+        time.sleep(wait_seconds)
+    log(
+        "Startup: da auto resize BlueStacks ve "
+        + f"{resized.width}x{resized.height}."
     )
 
 
@@ -1304,10 +1397,58 @@ def dismiss_harvest_interrupt_popup(context: BotContext, frame) -> bool:
     return True
 
 
+def scroll_harvest_list_once(context: BotContext, reason: str) -> None:
+    if context.window is None:
+        return
+
+    scroll_config = context.config["navigation"]["scroll"]
+    hover_point = get_scroll_hover_point(context)
+    wheel_delta = int(scroll_config.get("down_wheel_delta", -360))
+    distance_pixels = int(context.config["background"].get("scroll_distance_pixels", 420))
+    context.mouse.scroll_relative(context.window, hover_point, wheel_delta, distance_pixels)
+    context.scroll_attempts += 1
+    context.no_match_search_attempts = 0
+    log(f"{reason}. So lan cuon: {context.scroll_attempts}")
+    sleep_random(context.config["timing"]["scroll_delay_seconds"])
+    set_state(context, BotState.SEARCH_TARGET_ROWS)
+
+
+def dismiss_harvest_lock_popup(context: BotContext, frame) -> bool:
+    no_button_point = find_orange_button_point_in_action_region(
+        context,
+        frame,
+        "harvest_lock_no",
+    )
+    if no_button_point is None or context.window is None:
+        return False
+
+    button_config = get_navigation_config(context, "harvest_lock_no")
+    offset_x, offset_y = resolve_click_offset(
+        button_config,
+        (context.window.width, context.window.height),
+        context.reference_client_size,
+    )
+    click_point = no_button_point
+    if offset_x or offset_y:
+        click_point = clamp_point(
+            (click_point[0] + offset_x, click_point[1] + offset_y),
+            (context.window.width, context.window.height),
+        )
+
+    context.mouse.click_relative(context.window, click_point)
+    context.active_row = None
+    log("Phat hien popup 'Mo khoa'. Click nut cam 'Khong'.")
+    sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+    scroll_harvest_list_once(context, "Da cuon xuong 1 lan de bo qua trai bi khoa")
+    return True
+
+
 def handle_search_target_rows(context: BotContext) -> None:
     frame = capture_frame(context)
 
     if dismiss_harvest_interrupt_popup(context, frame):
+        return
+    if dismiss_harvest_lock_popup(context, frame):
         return
 
     if context.detector.find_message(frame, "bag_full") is not None:
@@ -1371,6 +1512,8 @@ def handle_harvest_row(context: BotContext) -> None:
     frame = capture_frame(context)
     if dismiss_harvest_interrupt_popup(context, frame):
         return
+    if dismiss_harvest_lock_popup(context, frame):
+        return
 
     row = context.active_row
     button_config = get_navigation_config(context, "fruit_harvest")
@@ -1387,13 +1530,18 @@ def handle_harvest_row(context: BotContext) -> None:
         )
 
     context.mouse.click_relative(context.window, click_point)
+    sleep_random(context.config["timing"]["post_harvest_click_wait_seconds"])
+
+    validation_frame = capture_frame(context)
+    if dismiss_harvest_lock_popup(context, validation_frame):
+        return
+
     context.session_harvest_count += 1
     log(
         f"Harvest '{row.fruit_name}' tai button {click_point} "
         f"(label_score={row.label_score:.3f}, button_score={row.button_score:.3f})"
     )
 
-    sleep_random(context.config["timing"]["post_harvest_click_wait_seconds"])
     context.active_row = None
     set_state(context, BotState.SEARCH_TARGET_ROWS)
 
@@ -2426,6 +2574,7 @@ def main() -> None:
             else (0, 0)
         )
         log_startup_profile(context, reference_width, reference_height)
+        auto_resize_bluestacks_window(config, context.reference_client_size)
         if background_config.get("enabled", False):
             mode = str(background_config.get("mode", "adb_first"))
             log(f"ADB {mode} da san sang. {adb_client.describe()}")

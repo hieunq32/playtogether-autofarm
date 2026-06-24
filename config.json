@@ -9,6 +9,9 @@
       "height": 312
     },
     "search_interval_seconds": 3.0,
+    "auto_resize_on_start": true,
+    "auto_resize_tolerance_pixels": 3,
+    "auto_resize_settle_seconds": 0.4,
     "activate_before_capture": true,
     "activate_cooldown_seconds": 0.8,
     "activation_settle_seconds": 0.15,
@@ -304,6 +307,18 @@
           0.92
         ],
         "force_allow_fallback": false
+      },
+      "harvest_lock_no": {
+        "search_region_ratio": [
+          0.24,
+          0.60,
+          0.53,
+          0.88
+        ],
+        "fallback_click_ratio": [
+          0.39,
+          0.76
+        ]
       },
       "seed_shop_entry": {
         "template": "templates/ui/seed_shop_entry_button.png",
