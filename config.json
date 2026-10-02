@@ -94,6 +94,18 @@
       0.7,
       1.1
     ],
+    "harvest_batch_click_pause_seconds": [
+      0.12,
+      0.22
+    ],
+    "harvest_lock_popup_wait_seconds": [
+      0.25,
+      0.4
+    ],
+    "harvest_lock_scroll_delay_seconds": [
+      0.12,
+      0.22
+    ],
     "row_search_retry_delay_seconds": [
       0.45,
       0.75
@@ -213,6 +225,25 @@
   "navigation": {
     "max_button_search_retries": 7,
     "buttons": {
+      "harvest_entry": {
+        "template": "templates/ui/harvest_entry_icon_current.png",
+        "threshold": 0.86,
+        "search_region_ratio": [
+          0.64,
+          0.22,
+          0.82,
+          0.48
+        ],
+        "match_click_anchor_ratio": [
+          0.5,
+          0.5
+        ],
+        "fallback_click_ratio": [
+          0.729,
+          0.327
+        ],
+        "force_allow_fallback": true
+      },
       "open_home": {
         "template": "templates/ui/home_icon_shop_b.png",
         "template_candidates": [
@@ -457,6 +488,53 @@
           0.14,
           0.48,
           0.96
+        ],
+        "force_allow_fallback": false
+      },
+      "seed_row_in_stock_status": {
+        "template": "templates/ui/seed_row_in_stock_status.png",
+        "threshold": 0.82,
+        "search_region_ratio": [
+          0.14,
+          0.14,
+          0.48,
+          0.96
+        ],
+        "force_allow_fallback": false
+      },
+      "seed_row_sold_out_status": {
+        "template": "templates/ui/seed_row_sold_out_status.png",
+        "template_candidates": [
+          "templates/ui/seed_row_sold_out_status_clean.png"
+        ],
+        "threshold": 0.84,
+        "search_region_ratio": [
+          0.14,
+          0.14,
+          0.48,
+          0.96
+        ],
+        "force_allow_fallback": false
+      },
+      "seed_quantity_title": {
+        "template": "templates/ui/seed_quantity_title.png",
+        "threshold": 0.86,
+        "search_region_ratio": [
+          0.26,
+          0.20,
+          0.74,
+          0.42
+        ],
+        "force_allow_fallback": false
+      },
+      "seed_quantity_plus": {
+        "template": "templates/ui/seed_quantity_plus_button.png",
+        "threshold": 0.84,
+        "search_region_ratio": [
+          0.58,
+          0.50,
+          0.76,
+          0.82
         ],
         "force_allow_fallback": false
       },
@@ -916,6 +994,46 @@
     "seed_buy_button_retry_attempts": 3,
     "tool_buy_button_retry_attempts": 6,
     "seed_shop_entry_fallback_after_attempts": 4,
+    "seed_purchase_all_rows": true,
+    "seed_shop_all_rows": {
+      "row_click_x_ratio": 0.24,
+      "row_click_y_ratios": [
+        0.32,
+        0.47,
+        0.62,
+        0.76,
+        0.89
+      ]
+    },
+    "seed_shop_all_rows_max_scroll_attempts": 64,
+    "seed_shop_all_rows_wheel_delta": -180,
+    "seed_shop_all_rows_scroll_distance_pixels": 620,
+    "seed_shop_all_rows_scroll_point_ratio": [
+      0.322,
+      0.36
+    ],
+    "seed_shop_row_identity_match_threshold": 0.86,
+    "seed_shop_row_status_tolerance_ratio": 0.10,
+    "seed_shop_row_status_retry_attempts": 3,
+    "seed_stop_after_bean": true,
+    "seed_quantity_plus_clicks": 3,
+    "seed_quantity_plus_click_interval_seconds": [
+      0.06,
+      0.10
+    ],
+    "seed_shop_detail_signature_region": [
+      0.48,
+      0.14,
+      0.88,
+      0.74
+    ],
+    "seed_shop_page_signature_region": [
+      0.08,
+      0.14,
+      0.48,
+      0.96
+    ],
+    "seed_process_visible_rows_only": true,
     "tool_shop_leave_option_click_attempts": 3,
     "tool_shop_final_dialog_clicks": 2,
     "seed_shop_leave_option_click_attempts": 3,
@@ -973,7 +1091,8 @@
       {
         "name": "watering_premium",
         "display_name": "Voi tuoi cao cap",
-        "row_action": "tool_watering_premium_row"
+        "row_action": "tool_watering_premium_row",
+        "buy_button_retry_attempts": 2
       },
       {
         "name": "watering_super",
@@ -983,6 +1102,8 @@
     ],
     "stop_after_sell": false,
     "harvest_navigation_recovery_attempts": 2,
+    "harvest_batch_click_count": 3,
+    "harvest_lock_scroll_count": 2,
     "restart_after_sell_delay_seconds": [
       2.0,
       3.0

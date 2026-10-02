@@ -1,6 +1,7 @@
+import hashlib
 import time
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
 from typing import Optional
@@ -34,6 +35,7 @@ from utils.window import (
 
 class BotState(Enum):
     WAIT_FOR_CHECK = auto()
+    OPEN_HARVEST_ENTRY = auto()
     OPEN_HOME = auto()
     OPEN_AVAILABLE_TO_HARVEST = auto()
     OPEN_HARVEST_POPUP = auto()
@@ -85,6 +87,7 @@ class BotContext:
     state: BotState = BotState.WAIT_FOR_CHECK
     window: Optional[GameWindow] = None
     active_row: Optional[HarvestRowMatch] = None
+    active_rows: list[HarvestRowMatch] = field(default_factory=list)
     last_window_refresh: float = 0.0
     last_window_activation: float = 0.0
     next_check_time: float = 0.0
@@ -98,6 +101,21 @@ class BotContext:
     seed_flow_active: bool = False
     tool_flow_active: bool = False
     seed_target_index: int = 0
+    seed_processed_target_indices: set[int] = field(default_factory=set)
+    seed_shop_slot_index: int = 0
+    seed_shop_processed_signatures: set[str] = field(default_factory=set)
+    seed_shop_processed_row_templates: list[np.ndarray] = field(default_factory=list)
+    seed_shop_pending_signature: Optional[str] = None
+    seed_shop_pending_row_signature: Optional[str] = None
+    seed_shop_pending_row_template: Optional[np.ndarray] = None
+    seed_shop_active_signature: Optional[str] = None
+    seed_shop_active_row_signature: Optional[str] = None
+    seed_shop_active_row_template: Optional[np.ndarray] = None
+    seed_shop_finish_after_active_row: bool = False
+    seed_quantity_plus_clicks_done: int = 0
+    seed_shop_active_name: str = ""
+    seed_shop_last_page_signature: Optional[str] = None
+    seed_shop_scroll_attempts: int = 0
     tool_target_index: int = 0
     seed_shop_position_reset_done: bool = False
     seed_shop_search_recovery_count: int = 0
@@ -206,6 +224,17 @@ def is_likely_blank_frame(frame) -> bool:
 
 def get_navigation_config(context: BotContext, action_name: str) -> dict:
     return context.config["navigation"]["buttons"].get(action_name, {})
+
+
+def select_harvest_batch(rows: list[HarvestRowMatch], max_items: int) -> list[HarvestRowMatch]:
+    """Limit one harvest pass so several visible rows can be clicked quickly."""
+    limit = max(1, int(max_items))
+    return list(rows[:limit])
+
+
+def get_harvest_lock_scroll_count(config: dict) -> int:
+    workflow_config = config.get("workflow", {})
+    return max(1, int(workflow_config.get("harvest_lock_scroll_count", 2)))
 
 
 def get_scroll_hover_point(context: BotContext) -> tuple[int, int]:
@@ -535,6 +564,22 @@ def click_seed_blue_button(context: BotContext, action_name: str, frame, label: 
     return True
 
 
+def click_seed_quantity_plus(context: BotContext, frame, click_index: int) -> bool:
+    if context.window is None:
+        return False
+
+    match = context.detector.find_action_button(frame, "seed_quantity_plus")
+    if match is None:
+        return False
+
+    context.mouse.click_relative(context.window, match.click_point)
+    log(
+        f"Clicked 'seed_quantity_plus' lan {click_index} "
+        f"tai {match.click_point}."
+    )
+    return True
+
+
 def click_detected_action_only(context: BotContext, action_name: str, frame, log_label: str | None = None) -> bool:
     if context.window is None:
         return False
@@ -593,6 +638,7 @@ def click_sell_cart_button(context: BotContext, frame) -> bool:
 
 def reset_session(context: BotContext) -> None:
     context.active_row = None
+    context.active_rows.clear()
     context.scroll_attempts = 0
     context.no_match_search_attempts = 0
     context.state_attempts = 0
@@ -603,6 +649,21 @@ def reset_session(context: BotContext) -> None:
     context.seed_flow_active = False
     context.tool_flow_active = False
     context.seed_target_index = 0
+    context.seed_processed_target_indices.clear()
+    context.seed_shop_slot_index = 0
+    context.seed_shop_processed_signatures.clear()
+    context.seed_shop_processed_row_templates.clear()
+    context.seed_shop_pending_signature = None
+    context.seed_shop_pending_row_signature = None
+    context.seed_shop_pending_row_template = None
+    context.seed_shop_active_signature = None
+    context.seed_shop_active_row_signature = None
+    context.seed_shop_active_row_template = None
+    context.seed_shop_finish_after_active_row = False
+    context.seed_quantity_plus_clicks_done = 0
+    context.seed_shop_active_name = ""
+    context.seed_shop_last_page_signature = None
+    context.seed_shop_scroll_attempts = 0
     context.tool_target_index = 0
     context.seed_shop_position_reset_done = False
     context.seed_shop_search_recovery_count = 0
@@ -616,14 +677,29 @@ def schedule_next_check(context: BotContext, reason: str) -> None:
 
 def begin_harvest_session(context: BotContext) -> None:
     reset_session(context)
-    set_state(context, BotState.OPEN_HOME)
+    set_state(context, BotState.OPEN_HARVEST_ENTRY)
 
 
 def begin_seed_purchase_flow(context: BotContext) -> None:
     context.sell_flow_active = False
     context.seed_flow_active = True
     context.tool_flow_active = False
-    context.seed_target_index = 0
+    context.seed_target_index = -1
+    context.seed_processed_target_indices.clear()
+    context.seed_shop_slot_index = 0
+    context.seed_shop_processed_signatures.clear()
+    context.seed_shop_processed_row_templates.clear()
+    context.seed_shop_pending_signature = None
+    context.seed_shop_pending_row_signature = None
+    context.seed_shop_pending_row_template = None
+    context.seed_shop_active_signature = None
+    context.seed_shop_active_row_signature = None
+    context.seed_shop_active_row_template = None
+    context.seed_shop_finish_after_active_row = False
+    context.seed_quantity_plus_clicks_done = 0
+    context.seed_shop_active_name = ""
+    context.seed_shop_last_page_signature = None
+    context.seed_shop_scroll_attempts = 0
     context.seed_shop_position_reset_done = False
     context.seed_shop_search_recovery_count = 0
     context.state_attempts = 0
@@ -752,6 +828,228 @@ def get_seed_targets(context: BotContext) -> list[dict]:
     return list(context.config.get("workflow", {}).get("seed_purchase_targets", []))
 
 
+def seed_purchase_all_rows_enabled(config: dict) -> bool:
+    return bool(config.get("workflow", {}).get("seed_purchase_all_rows", False))
+
+
+def get_seed_shop_row_ratios(config: dict) -> tuple[float, list[float]]:
+    all_rows_config = config.get("workflow", {}).get("seed_shop_all_rows", {})
+    x_ratio = float(all_rows_config.get("row_click_x_ratio", 0.24))
+    y_ratios = [
+        float(value)
+        for value in all_rows_config.get(
+            "row_click_y_ratios",
+            [0.32, 0.47, 0.62, 0.76, 0.89],
+        )
+    ]
+    return x_ratio, y_ratios
+
+
+def get_seed_shop_row_points(context: BotContext) -> list[tuple[int, int]]:
+    if context.window is None:
+        return []
+
+    x_ratio, y_ratios = get_seed_shop_row_ratios(context.config)
+    return [
+        (
+            round(context.window.width * x_ratio),
+            round(context.window.height * y_ratio),
+        )
+        for y_ratio in y_ratios
+    ]
+
+
+def get_seed_shop_row_match(
+    context: BotContext,
+    frame,
+    action_name: str,
+    row_index: int,
+):
+    row_points = get_seed_shop_row_points(context)
+    if row_index < 0 or row_index >= len(row_points):
+        return None
+
+    tolerance_ratio = float(
+        context.config.get("workflow", {}).get(
+            "seed_shop_row_status_tolerance_ratio",
+            0.10,
+        )
+    )
+    target_y = row_points[row_index][1]
+    tolerance = max(8, round(frame.shape[0] * tolerance_ratio))
+    candidates = [
+        match
+        for match in context.detector.find_all_action_buttons(frame, action_name)
+        if abs(match.click_point[1] - target_y) <= tolerance
+    ]
+    if not candidates:
+        return None
+
+    return sorted(
+        candidates,
+        key=lambda match: (-match.score, abs(match.click_point[1] - target_y)),
+    )[0]
+
+
+def get_seed_shop_row_status(context: BotContext, frame, row_index: int) -> str:
+    status_matches = []
+    for action_name, status_name in (
+        ("seed_row_in_stock_status", "available"),
+        ("seed_row_sold_out_status", "sold_out"),
+    ):
+        match = get_seed_shop_row_match(context, frame, action_name, row_index)
+        if match is not None:
+            status_matches.append((match.score, status_name))
+
+    if not status_matches:
+        return "unknown"
+    return max(status_matches, key=lambda item: item[0])[1]
+
+
+def seed_shop_row_is_terminal(context: BotContext, frame, row_index: int) -> bool:
+    return (
+        get_seed_shop_row_match(context, frame, "seed_bean_row", row_index)
+        is not None
+    )
+
+
+def get_seed_quantity_plus_clicks(config: dict) -> int:
+    return max(0, int(config.get("workflow", {}).get("seed_quantity_plus_clicks", 3)))
+
+
+def get_seed_quantity_plus_delay(config: dict) -> list[float]:
+    value = config.get("workflow", {}).get(
+        "seed_quantity_plus_click_interval_seconds",
+        [0.06, 0.10],
+    )
+    if not isinstance(value, list) or len(value) != 2:
+        return [0.06, 0.10]
+    return [float(value[0]), float(value[1])]
+
+
+def get_seed_shop_region_signature(frame, region_ratio: list[float]) -> str:
+    height, width = frame.shape[:2]
+    left = max(0, min(width - 1, round(width * float(region_ratio[0]))))
+    top = max(0, min(height - 1, round(height * float(region_ratio[1]))))
+    right = max(left + 1, min(width, round(width * float(region_ratio[2]))))
+    bottom = max(top + 1, min(height, round(height * float(region_ratio[3]))))
+    roi = frame[top:bottom, left:right]
+    if roi.size == 0:
+        return "empty"
+
+    gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+    normalized = cv2.resize(gray, (32, 32), interpolation=cv2.INTER_AREA)
+    return hashlib.sha1(normalized.tobytes()).hexdigest()
+
+
+def get_seed_shop_panel_signature(context: BotContext, frame) -> str:
+    region_ratio = context.config.get("workflow", {}).get(
+        "seed_shop_detail_signature_region",
+        [0.48, 0.14, 0.88, 0.74],
+    )
+    return get_seed_shop_region_signature(frame, region_ratio)
+
+
+def get_seed_shop_page_signature(context: BotContext, frame) -> str:
+    region_ratio = context.config.get("workflow", {}).get(
+        "seed_shop_page_signature_region",
+        [0.08, 0.14, 0.48, 0.96],
+    )
+    return get_seed_shop_region_signature(frame, region_ratio)
+
+
+def get_seed_shop_row_signature(frame, row_index: int, config: dict) -> str:
+    _, row_y_ratios = get_seed_shop_row_ratios(config)
+    if row_index < 0 or row_index >= len(row_y_ratios):
+        return "empty"
+
+    height, width = frame.shape[:2]
+    center_y = round(height * row_y_ratios[row_index])
+    left = max(0, round(width * 0.12))
+    right = min(width, round(width * 0.46))
+    top = max(0, round(center_y - height * 0.09))
+    bottom = min(height, round(center_y - height * 0.015))
+    roi = frame[top:bottom, left:right]
+    if roi.size == 0:
+        return "empty"
+
+    resized = cv2.resize(roi, (32, 8), interpolation=cv2.INTER_AREA)
+    quantized = (resized // 16).astype(np.uint8)
+    return hashlib.sha1(quantized.tobytes()).hexdigest()
+
+
+def get_seed_shop_row_template(frame, row_index: int, config: dict):
+    """Crop only the row icon and name, excluding changing stock numbers."""
+    _, row_y_ratios = get_seed_shop_row_ratios(config)
+    if row_index < 0 or row_index >= len(row_y_ratios):
+        return None
+
+    height, width = frame.shape[:2]
+    center_y = round(height * row_y_ratios[row_index])
+    left = max(0, round(width * 0.10))
+    right = min(width, round(width * 0.46))
+    top = max(0, round(center_y - height * 0.055))
+    bottom = min(height, round(center_y + height * 0.025))
+    roi = frame[top:bottom, left:right]
+    if roi.size == 0:
+        return None
+
+    return cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+
+
+def seed_shop_row_template_is_processed(
+    context: BotContext,
+    frame,
+    row_index: int,
+    row_template,
+) -> bool:
+    if row_template is None or row_template.size == 0:
+        return False
+
+    _, row_y_ratios = get_seed_shop_row_ratios(context.config)
+    if row_index < 0 or row_index >= len(row_y_ratios):
+        return False
+
+    height, width = frame.shape[:2]
+    center_y = round(height * row_y_ratios[row_index])
+    left = max(0, round(width * 0.08))
+    right = min(width, round(width * 0.48))
+    top = max(0, round(center_y - height * 0.13))
+    bottom = min(height, round(center_y + height * 0.13))
+    search_region = frame[top:bottom, left:right]
+    if search_region.size == 0:
+        return False
+
+    search_gray = cv2.cvtColor(search_region, cv2.COLOR_BGR2GRAY)
+    if (
+        search_gray.shape[0] < row_template.shape[0]
+        or search_gray.shape[1] < row_template.shape[1]
+    ):
+        return False
+
+    threshold = float(
+        context.config.get("workflow", {}).get(
+            "seed_shop_row_identity_match_threshold",
+            0.86,
+        )
+    )
+    for processed_template in context.seed_shop_processed_row_templates:
+        if (
+            processed_template.shape[0] > search_gray.shape[0]
+            or processed_template.shape[1] > search_gray.shape[1]
+        ):
+            continue
+        result = cv2.matchTemplate(
+            search_gray,
+            processed_template,
+            cv2.TM_CCOEFF_NORMED,
+        )
+        if float(result.max()) >= threshold:
+            return True
+
+    return False
+
+
 def get_current_seed_target(context: BotContext) -> Optional[dict]:
     targets = get_seed_targets(context)
     if context.seed_target_index < 0 or context.seed_target_index >= len(targets):
@@ -766,7 +1064,61 @@ def get_current_seed_display_name(context: BotContext) -> str:
     return str(target.get("display_name") or target.get("name") or "hat giong")
 
 
+def get_next_unprocessed_seed_target_index(context: BotContext) -> Optional[int]:
+    processed = context.seed_processed_target_indices
+    for index in range(len(get_seed_targets(context))):
+        if index not in processed:
+            return index
+    return None
+
+
 def advance_to_next_seed_target(context: BotContext) -> None:
+    if seed_purchase_all_rows_enabled(context.config):
+        if context.seed_shop_active_signature:
+            context.seed_shop_processed_signatures.add(
+                context.seed_shop_active_signature
+            )
+        if context.seed_shop_active_row_signature:
+            context.seed_shop_processed_signatures.add(
+                context.seed_shop_active_row_signature
+            )
+        if context.seed_shop_active_row_template is not None:
+            context.seed_shop_processed_row_templates.append(
+                context.seed_shop_active_row_template
+            )
+        context.seed_shop_active_signature = None
+        context.seed_shop_active_row_signature = None
+        context.seed_shop_active_row_template = None
+        context.seed_shop_pending_signature = None
+        context.seed_shop_pending_row_signature = None
+        context.seed_shop_pending_row_template = None
+        should_finish = context.seed_shop_finish_after_active_row
+        context.seed_shop_finish_after_active_row = False
+        context.seed_quantity_plus_clicks_done = 0
+        if should_finish:
+            log("Da xu ly row Hat dau cuoi danh sach. Dong shop hat giong.")
+            set_state(context, BotState.CLOSE_SEED_SHOP)
+            return
+        context.seed_shop_slot_index += 1
+        context.state_attempts = 0
+        set_state(context, BotState.SEARCH_PUMPKIN_SEED)
+        return
+
+    if context.config.get("workflow", {}).get("seed_process_visible_rows_only", True):
+        current_index = context.seed_target_index
+        if current_index >= 0:
+            context.seed_processed_target_indices.add(current_index)
+            target = get_seed_targets(context)[current_index]
+            log(
+                f"Da xu ly row {target.get('display_name') or target.get('name') or 'hat giong'}. "
+                "Tiep tuc quet cac row dang hien, khong scroll."
+            )
+        context.seed_target_index = -1
+        context.state_attempts = 0
+        context.seed_shop_search_recovery_count = 0
+        set_state(context, BotState.SEARCH_PUMPKIN_SEED)
+        return
+
     context.seed_target_index += 1
     context.state_attempts = 0
     context.seed_shop_search_recovery_count = 0
@@ -788,6 +1140,34 @@ def find_visible_seed_target_index(context: BotContext, frame, start_index: int)
         if action_name and context.detector.find_action_button(frame, action_name) is not None:
             return index
     return None
+
+
+def find_visible_seed_target_indices(
+    context: BotContext,
+    frame,
+    excluded_indices: set[int] | None = None,
+) -> list[int]:
+    """Return configured seed rows visible in the current viewport, top to bottom."""
+    excluded = excluded_indices or set()
+    visible_rows = []
+    for index, target in enumerate(get_seed_targets(context)):
+        if index in excluded:
+            continue
+
+        action_name = str(target.get("row_action", ""))
+        if not action_name:
+            continue
+
+        match = context.detector.find_action_button(frame, action_name)
+        if match is None:
+            continue
+
+        visible_rows.append((match.click_point[1], match.click_point[0], index))
+
+    # Keep the configured purchase order even when several target rows are
+    # visible at different vertical positions in the current viewport.
+    visible_rows.sort(key=lambda item: item[2])
+    return [index for _, _, index in visible_rows]
 
 
 def reset_seed_shop_list_position_once(context: BotContext, reason: str) -> bool:
@@ -833,6 +1213,14 @@ def get_current_tool_display_name(context: BotContext) -> str:
     if target is None:
         return "voi tuoi"
     return str(target.get("display_name") or target.get("name") or "voi tuoi")
+
+
+def get_tool_buy_button_retry_attempts(target: dict, config: dict) -> int:
+    workflow_config = config.get("workflow", {})
+    configured_attempts = target.get("buy_button_retry_attempts")
+    if configured_attempts is None:
+        configured_attempts = workflow_config.get("tool_buy_button_retry_attempts", 4)
+    return max(1, int(configured_attempts))
 
 
 def advance_to_next_tool_target(context: BotContext) -> None:
@@ -1381,6 +1769,7 @@ def sync_state_from_visible_screen(context: BotContext, frame) -> bool:
 
     if is_fruit_list_visible(context, frame):
         if context.state in {
+            BotState.OPEN_HARVEST_ENTRY,
             BotState.OPEN_HOME,
             BotState.OPEN_AVAILABLE_TO_HARVEST,
             BotState.OPEN_HARVEST_POPUP,
@@ -1490,12 +1879,18 @@ def dismiss_harvest_interrupt_popup(context: BotContext, frame) -> bool:
     log("Phat hien popup thong bao trong luc thu hoach. Click 'OK' de tiep tuc.")
     if click_named_button(context, "harvest_interrupt_ok", frame):
         context.active_row = None
+        context.active_rows.clear()
         sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
         set_state(context, BotState.SEARCH_TARGET_ROWS)
     return True
 
 
-def scroll_harvest_list_once(context: BotContext, reason: str) -> None:
+def scroll_harvest_list(
+    context: BotContext,
+    count: int,
+    reason: str,
+    delay_range: list[float],
+) -> None:
     if context.window is None:
         return
 
@@ -1503,12 +1898,28 @@ def scroll_harvest_list_once(context: BotContext, reason: str) -> None:
     hover_point = get_scroll_hover_point(context)
     wheel_delta = int(scroll_config.get("down_wheel_delta", -360))
     distance_pixels = int(context.config["background"].get("scroll_distance_pixels", 420))
-    context.mouse.scroll_relative(context.window, hover_point, wheel_delta, distance_pixels)
-    context.scroll_attempts += 1
-    context.no_match_search_attempts = 0
-    log(f"{reason}. So lan cuon: {context.scroll_attempts}")
-    sleep_random(context.config["timing"]["scroll_delay_seconds"])
+    for index in range(max(1, int(count))):
+        context.mouse.scroll_relative(context.window, hover_point, wheel_delta, distance_pixels)
+        context.scroll_attempts += 1
+        context.no_match_search_attempts = 0
+        log(
+            f"{reason} ({index + 1}/{max(1, int(count))}). "
+            f"So lan cuon: {context.scroll_attempts}"
+        )
+        if index + 1 < max(1, int(count)):
+            sleep_random(delay_range)
+
+    sleep_random(delay_range)
     set_state(context, BotState.SEARCH_TARGET_ROWS)
+
+
+def scroll_harvest_list_once(context: BotContext, reason: str) -> None:
+    scroll_harvest_list(
+        context,
+        count=1,
+        reason=reason,
+        delay_range=context.config["timing"].get("scroll_delay_seconds", [0.6, 0.9]),
+    )
 
 
 def dismiss_harvest_lock_popup(context: BotContext, frame) -> bool:
@@ -1535,9 +1946,22 @@ def dismiss_harvest_lock_popup(context: BotContext, frame) -> bool:
 
     context.mouse.click_relative(context.window, click_point)
     context.active_row = None
+    context.active_rows.clear()
     log("Phat hien popup 'Mo khoa'. Click nut cam 'Khong'.")
-    sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
-    scroll_harvest_list_once(context, "Da cuon xuong 1 lan de bo qua trai bi khoa")
+    lock_wait = context.config["timing"].get(
+        "harvest_lock_popup_wait_seconds",
+        [0.25, 0.4],
+    )
+    sleep_random(lock_wait)
+    scroll_harvest_list(
+        context,
+        count=get_harvest_lock_scroll_count(context.config),
+        reason="Da cuon nhanh de bo qua trai bi khoa",
+        delay_range=context.config["timing"].get(
+            "harvest_lock_scroll_delay_seconds",
+            [0.12, 0.22],
+        ),
+    )
     return True
 
 
@@ -1556,7 +1980,11 @@ def handle_search_target_rows(context: BotContext) -> None:
     rows = context.detector.find_harvestable_rows(frame)
     if rows:
         context.no_match_search_attempts = 0
-        context.active_row = rows[0]
+        batch_size = int(
+            context.config.get("workflow", {}).get("harvest_batch_click_count", 3)
+        )
+        context.active_rows = select_harvest_batch(rows, batch_size)
+        context.active_row = context.active_rows[0]
         set_state(context, BotState.HARVEST_ROW)
         return
 
@@ -1603,44 +2031,72 @@ def handle_search_target_rows(context: BotContext) -> None:
 
 
 def handle_harvest_row(context: BotContext) -> None:
-    if context.window is None or context.active_row is None:
+    if context.window is None:
         set_state(context, BotState.SEARCH_TARGET_ROWS)
         return
 
-    frame = capture_frame(context)
-    if dismiss_harvest_interrupt_popup(context, frame):
-        return
-    if dismiss_harvest_lock_popup(context, frame):
+    rows = list(context.active_rows)
+    if not rows and context.active_row is not None:
+        rows = [context.active_row]
+    if not rows:
+        set_state(context, BotState.SEARCH_TARGET_ROWS)
         return
 
-    row = context.active_row
+    # Click from the bottom upward so removing a row is less likely to shift
+    # the coordinates of rows that are still waiting in this batch.
+    rows.sort(key=lambda row: (row.button_point[1], row.button_point[0]), reverse=True)
     button_config = get_navigation_config(context, "fruit_harvest")
     offset_x, offset_y = resolve_click_offset(
         button_config,
         (context.window.width, context.window.height),
         context.reference_client_size,
     )
-    click_point = row.button_point
-    if offset_x or offset_y:
-        click_point = clamp_point(
-            (row.button_point[0] + offset_x, row.button_point[1] + offset_y),
-            (context.window.width, context.window.height),
+
+    click_pause = context.config["timing"].get(
+        "harvest_batch_click_pause_seconds",
+        [0.12, 0.22],
+    )
+    for row in rows:
+        frame = capture_frame(context)
+        if dismiss_harvest_interrupt_popup(context, frame):
+            return
+        if dismiss_harvest_lock_popup(context, frame):
+            return
+        if context.detector.find_message(frame, "bag_full") is not None:
+            context.active_row = None
+            context.active_rows.clear()
+            set_state(context, BotState.BAG_FULL)
+            return
+
+        click_point = row.button_point
+        if offset_x or offset_y:
+            click_point = clamp_point(
+                (row.button_point[0] + offset_x, row.button_point[1] + offset_y),
+                (context.window.width, context.window.height),
+            )
+
+        context.mouse.click_relative(context.window, click_point)
+        sleep_random(click_pause)
+
+        validation_frame = capture_frame(context)
+        if dismiss_harvest_interrupt_popup(context, validation_frame):
+            return
+        if dismiss_harvest_lock_popup(context, validation_frame):
+            return
+        if context.detector.find_message(validation_frame, "bag_full") is not None:
+            context.active_row = None
+            context.active_rows.clear()
+            set_state(context, BotState.BAG_FULL)
+            return
+
+        context.session_harvest_count += 1
+        log(
+            f"Harvest '{row.fruit_name}' tai button {click_point} "
+            f"(label_score={row.label_score:.3f}, button_score={row.button_score:.3f})"
         )
 
-    context.mouse.click_relative(context.window, click_point)
-    sleep_random(context.config["timing"]["post_harvest_click_wait_seconds"])
-
-    validation_frame = capture_frame(context)
-    if dismiss_harvest_lock_popup(context, validation_frame):
-        return
-
-    context.session_harvest_count += 1
-    log(
-        f"Harvest '{row.fruit_name}' tai button {click_point} "
-        f"(label_score={row.label_score:.3f}, button_score={row.button_score:.3f})"
-    )
-
     context.active_row = None
+    context.active_rows.clear()
     set_state(context, BotState.SEARCH_TARGET_ROWS)
 
 
@@ -1783,6 +2239,165 @@ def handle_open_seed_shop_buy_option(context: BotContext) -> None:
     sleep_random(context.config["timing"]["button_retry_delay_seconds"])
 
 
+def handle_search_all_seed_rows(context: BotContext, frame) -> None:
+    if not context.seed_shop_position_reset_done:
+        if reset_seed_shop_list_position_once(context, "bat dau duyet tat ca row"):
+            context.seed_shop_slot_index = 0
+            context.seed_shop_last_page_signature = None
+            sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+            return
+
+    row_points = get_seed_shop_row_points(context)
+    if not row_points:
+        log("Khong co toa do row hat giong de xu ly.")
+        set_state(context, BotState.CLOSE_SEED_SHOP)
+        return
+
+    if context.seed_shop_slot_index >= len(row_points):
+        page_signature = get_seed_shop_page_signature(context, frame)
+        max_scrolls = int(
+            context.config.get("workflow", {}).get(
+                "seed_shop_all_rows_max_scroll_attempts",
+                context.config.get("workflow", {}).get("seed_shop_max_scroll_attempts", 8),
+            )
+        )
+        if context.seed_shop_last_page_signature == page_signature:
+            log("Danh sach hat giong khong con row moi sau khi scroll. Dong shop.")
+            set_state(context, BotState.CLOSE_SEED_SHOP)
+            return
+        if context.seed_shop_scroll_attempts >= max_scrolls:
+            log(
+                f"Da scroll shop hat giong {max_scrolls} lan. "
+                "Dong shop sau khi xu ly cac row da thay."
+            )
+            set_state(context, BotState.CLOSE_SEED_SHOP)
+            return
+
+        context.seed_shop_last_page_signature = page_signature
+        context.seed_shop_slot_index = 0
+        context.seed_shop_scroll_attempts += 1
+        if context.window is None:
+            return
+
+        workflow_config = context.config.get("workflow", {})
+        scroll_ratio = workflow_config.get(
+            "seed_shop_all_rows_scroll_point_ratio",
+            workflow_config.get("seed_shop_scroll_point_ratio", [0.322, 0.577]),
+        )
+        hover_point = (
+            round(context.window.width * float(scroll_ratio[0])),
+            round(context.window.height * float(scroll_ratio[1])),
+        )
+        wheel_delta = int(workflow_config.get("seed_shop_all_rows_wheel_delta", -180))
+        distance_pixels = int(
+            workflow_config.get("seed_shop_all_rows_scroll_distance_pixels", 150)
+        )
+        log(
+            "Da kiem tra cac row dang hien. Scroll tiep shop hat giong "
+            f"lan {context.seed_shop_scroll_attempts}/{max_scrolls}."
+        )
+        context.mouse.scroll_relative(context.window, hover_point, wheel_delta, distance_pixels)
+        sleep_random(context.config["timing"]["scroll_delay_seconds"])
+        return
+
+    row_index = context.seed_shop_slot_index
+    page_number = context.seed_shop_scroll_attempts + 1
+    row_signature = get_seed_shop_row_signature(
+        frame,
+        row_index,
+        context.config,
+    )
+    row_template = get_seed_shop_row_template(
+        frame,
+        row_index,
+        context.config,
+    )
+    if (
+        row_template is not None
+        and seed_shop_row_template_is_processed(
+            context,
+            frame,
+            row_index,
+            row_template,
+        )
+    ):
+        log(
+            f"Trang {page_number}: bo qua row hat giong "
+            f"{row_index + 1}/{len(row_points)} vi ten/icon row nay "
+            "da xu ly truoc do."
+        )
+        context.seed_shop_slot_index += 1
+        return
+
+    if row_signature != "empty" and row_signature in context.seed_shop_processed_signatures:
+        log(
+            f"Trang {page_number}: bo qua row hat giong "
+            f"{row_index + 1}/{len(row_points)} vi row nay da xu ly truoc do."
+        )
+        context.seed_shop_slot_index += 1
+        return
+
+    is_terminal_row = (
+        bool(context.config.get("workflow", {}).get("seed_stop_after_bean", True))
+        and seed_shop_row_is_terminal(context, frame, row_index)
+    )
+    row_status = get_seed_shop_row_status(context, frame, row_index)
+    if row_status == "sold_out":
+        log(
+            f"Trang {page_number}: row {row_index + 1}/{len(row_points)} "
+            "het hang, bo qua khong click."
+        )
+        if is_terminal_row:
+            log("Da gap Hat dau cuoi danh sach va dang het hang. Dong shop.")
+            set_state(context, BotState.CLOSE_SEED_SHOP)
+            return
+        context.seed_shop_slot_index += 1
+        context.state_attempts = 0
+        return
+
+    if row_status != "available":
+        context.state_attempts += 1
+        max_status_retries = int(
+            context.config.get("workflow", {}).get(
+                "seed_shop_row_status_retry_attempts",
+                3,
+            )
+        )
+        if context.state_attempts >= max_status_retries:
+            log(
+                f"Trang {page_number}: khong doc duoc trang thai row "
+                f"{row_index + 1}/{len(row_points)}. Bo qua row."
+            )
+            if is_terminal_row:
+                set_state(context, BotState.CLOSE_SEED_SHOP)
+                return
+            context.seed_shop_slot_index += 1
+            context.state_attempts = 0
+        else:
+            log(
+                f"Trang {page_number}: dang doi nhan dien trang thai row "
+                f"{row_index + 1}/{len(row_points)} "
+                f"lan {context.state_attempts}/{max_status_retries}."
+            )
+        return
+
+    context.state_attempts = 0
+
+    click_point = row_points[row_index]
+    context.seed_shop_pending_signature = get_seed_shop_panel_signature(context, frame)
+    context.seed_shop_pending_row_signature = row_signature
+    context.seed_shop_pending_row_template = row_template
+    context.seed_shop_finish_after_active_row = is_terminal_row
+    context.seed_shop_active_name = f"hat giong row {row_index + 1}"
+    context.mouse.click_relative(context.window, click_point)
+    log(
+        f"Trang {page_number}: clicked row hat giong "
+        f"{row_index + 1}/{len(row_points)} tai {click_point}."
+    )
+    sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+    set_state(context, BotState.SELECT_PUMPKIN_SEED)
+
+
 def handle_search_pumpkin_seed(context: BotContext) -> None:
     frame = capture_frame(context)
     if sync_state_from_visible_screen(context, frame):
@@ -1796,6 +2411,89 @@ def handle_search_pumpkin_seed(context: BotContext) -> None:
         else:
             set_state(context, BotState.OPEN_SEED_SHOP_NPC_MENU)
         sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+        return
+
+    if seed_purchase_all_rows_enabled(context.config):
+        handle_search_all_seed_rows(context, frame)
+        return
+
+    if context.config.get("workflow", {}).get("seed_process_visible_rows_only", True):
+        visible_indices = find_visible_seed_target_indices(
+            context,
+            frame,
+            context.seed_processed_target_indices,
+        )
+        target_index = visible_indices[0] if visible_indices else get_next_unprocessed_seed_target_index(context)
+        if target_index is None:
+            log("Da xu ly het danh sach hat giong. Dong shop va tiep tuc ban nong san.")
+            set_state(context, BotState.CLOSE_SEED_SHOP)
+            return
+
+        target = get_seed_targets(context)[target_index]
+        target_name = str(target.get("display_name") or target.get("name") or "hat giong")
+        target_action = str(target.get("row_action", ""))
+        context.seed_target_index = target_index
+
+        if visible_indices:
+            if click_named_button(context, target_action, frame):
+                set_state(context, BotState.SELECT_PUMPKIN_SEED)
+                sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
+                return
+
+            context.state_attempts += 1
+            max_retries = int(context.config["navigation"]["max_button_search_retries"])
+            if context.state_attempts >= max_retries:
+                log(f"Khong click duoc row {target_name}. Bo qua row, khong scroll.")
+                context.seed_processed_target_indices.add(target_index)
+                context.seed_target_index = -1
+                context.state_attempts = 0
+            sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+            return
+
+        context.state_attempts += 1
+        max_scrolls = int(
+            context.config.get("workflow", {}).get(
+                "seed_shop_max_scroll_attempts_per_target",
+                context.config.get("workflow", {}).get("seed_shop_max_scroll_attempts", 8),
+            )
+        )
+        if context.state_attempts > max_scrolls:
+            log(
+                f"Khong tim thay {target_name} sau {max_scrolls} lan scroll. "
+                "Bo qua target va tim target tiep theo, khong dong shop."
+            )
+            context.seed_processed_target_indices.add(target_index)
+            context.seed_target_index = -1
+            context.state_attempts = 0
+            sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+            return
+
+        if context.window is None:
+            return
+
+        seed_scroll_ratio = context.config.get("workflow", {}).get(
+            "seed_shop_scroll_point_ratio",
+            [0.322, 0.577],
+        )
+        hover_point = (
+            round(context.window.width * float(seed_scroll_ratio[0])),
+            round(context.window.height * float(seed_scroll_ratio[1])),
+        )
+        workflow_config = context.config.get("workflow", {})
+        if target_index == 0 and context.state_attempts == 1:
+            wheel_delta = int(workflow_config.get("seed_shop_initial_wheel_delta", -420))
+            distance_pixels = int(workflow_config.get("seed_shop_initial_scroll_distance_pixels", 420))
+            scroll_label = "Scroll nhanh"
+        else:
+            wheel_delta = int(workflow_config.get("seed_shop_wheel_delta", -180))
+            distance_pixels = int(workflow_config.get("seed_shop_scroll_distance_pixels", 150))
+            scroll_label = "Scroll nhe"
+        log(
+            f"Chua thay {target_name}. {scroll_label} shop hat giong "
+            f"lan {context.state_attempts}/{max_scrolls}."
+        )
+        context.mouse.scroll_relative(context.window, hover_point, wheel_delta, distance_pixels)
+        sleep_random(context.config["timing"]["scroll_delay_seconds"])
         return
 
     target = get_current_seed_target(context)
@@ -1872,12 +2570,63 @@ def handle_search_pumpkin_seed(context: BotContext) -> None:
 
 
 def handle_select_pumpkin_seed(context: BotContext) -> None:
+    if seed_purchase_all_rows_enabled(context.config):
+        frame = capture_frame(context)
+        panel_signature = get_seed_shop_panel_signature(context, frame)
+        pending_signature = context.seed_shop_pending_signature
+        pending_row_signature = context.seed_shop_pending_row_signature
+        pending_row_template = context.seed_shop_pending_row_template
+        is_first_row = (
+            context.seed_shop_slot_index == 0
+            and not context.seed_shop_processed_signatures
+        )
+
+        if (
+            pending_row_signature
+            and pending_row_signature != "empty"
+            and pending_row_signature in context.seed_shop_processed_signatures
+        ):
+            log("Row hat giong nay da xu ly theo ten row. Bo qua de tranh mua trung.")
+            advance_to_next_seed_target(context)
+            return
+
+        if seed_shop_row_template_is_processed(
+            context,
+            frame,
+            context.seed_shop_slot_index,
+            pending_row_template,
+        ):
+            log("Ten/icon row hat giong nay da xu ly. Bo qua de tranh mua trung.")
+            advance_to_next_seed_target(context)
+            return
+
+        if panel_signature in context.seed_shop_processed_signatures:
+            log("Row hat giong nay da xu ly. Bo qua de tranh mua trung.")
+            advance_to_next_seed_target(context)
+            return
+
+        if pending_signature == panel_signature and not is_first_row:
+            log("Click row khong lam doi panel ben phai. Bo qua slot trong.")
+            advance_to_next_seed_target(context)
+            return
+
+        context.seed_shop_active_signature = panel_signature
+        context.seed_shop_active_row_signature = pending_row_signature
+        context.seed_shop_active_row_template = pending_row_template
+        set_state(context, BotState.BUY_PUMPKIN_SEED)
+        return
+
     set_state(context, BotState.BUY_PUMPKIN_SEED)
 
 
 def handle_buy_pumpkin_seed(context: BotContext) -> None:
-    target_name = get_current_seed_display_name(context)
-    if get_current_seed_target(context) is None:
+    all_rows_mode = seed_purchase_all_rows_enabled(context.config)
+    target_name = (
+        context.seed_shop_active_name
+        if all_rows_mode and context.seed_shop_active_name
+        else get_current_seed_display_name(context)
+    )
+    if not all_rows_mode and get_current_seed_target(context) is None:
         set_state(context, BotState.CLOSE_SEED_SHOP)
         return
 
@@ -1899,6 +2648,7 @@ def handle_buy_pumpkin_seed(context: BotContext) -> None:
             return
 
         if click_seed_blue_button(context, "seed_buy_price", frame, target_name):
+            context.seed_quantity_plus_clicks_done = 0
             set_state(context, BotState.CONFIRM_BUY_PUMPKIN_SEED)
             sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
             return
@@ -1927,7 +2677,55 @@ def handle_buy_pumpkin_seed(context: BotContext) -> None:
 
 def handle_confirm_buy_pumpkin_seed(context: BotContext) -> None:
     frame = capture_frame(context)
-    target_name = get_current_seed_display_name(context)
+    target_name = (
+        context.seed_shop_active_name
+        if seed_purchase_all_rows_enabled(context.config)
+        and context.seed_shop_active_name
+        else get_current_seed_display_name(context)
+    )
+
+    quantity_title = context.detector.find_action_button(
+        frame,
+        "seed_quantity_title",
+    )
+    if quantity_title is not None:
+        target_plus_clicks = get_seed_quantity_plus_clicks(context.config)
+        plus_delay = get_seed_quantity_plus_delay(context.config)
+        max_retries = int(context.config["navigation"]["max_button_search_retries"])
+
+        while context.seed_quantity_plus_clicks_done < target_plus_clicks:
+            frame = capture_frame(context)
+            if context.detector.find_action_button(frame, "seed_quantity_title") is None:
+                break
+
+            click_index = context.seed_quantity_plus_clicks_done + 1
+            if not click_seed_quantity_plus(context, frame, click_index):
+                context.state_attempts += 1
+                if context.state_attempts >= max_retries:
+                    log(
+                        f"Khong thay nut '+' trong popup mua {target_name}. "
+                        "Bo qua row nay de tranh mua sai so luong."
+                    )
+                    advance_to_next_seed_target(context)
+                    return
+                sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+                return
+
+            context.seed_quantity_plus_clicks_done += 1
+            context.state_attempts = 0
+            sleep_random(plus_delay)
+
+        if context.seed_quantity_plus_clicks_done < target_plus_clicks:
+            context.state_attempts += 1
+            sleep_random(context.config["timing"]["button_retry_delay_seconds"])
+            return
+
+        log(
+            f"Da tang so luong {target_name} them "
+            f"{context.seed_quantity_plus_clicks_done} lan."
+        )
+        frame = capture_frame(context)
+
     if click_seed_blue_button(context, "seed_buy_popup_submit", frame, target_name):
         log(f"Da click xac nhan mua {target_name}.")
         sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
@@ -2160,7 +2958,10 @@ def handle_buy_tool_item(context: BotContext) -> None:
         return
 
     workflow_config = context.config.get("workflow", {})
-    max_buy_button_attempts = int(workflow_config.get("tool_buy_button_retry_attempts", 4))
+    max_buy_button_attempts = get_tool_buy_button_retry_attempts(
+        get_current_tool_target(context),
+        context.config,
+    )
     retry_delay = context.config["timing"].get(
         "seed_buy_button_retry_delay_seconds",
         context.config["timing"]["button_retry_delay_seconds"],
@@ -2541,6 +3342,15 @@ def run_state_machine(context: BotContext) -> None:
 
         if context.state == BotState.WAIT_FOR_CHECK:
             handle_wait_for_check(context)
+        elif context.state == BotState.OPEN_HARVEST_ENTRY:
+            handle_navigation_step(
+                context,
+                action_name="harvest_entry",
+                success_state=BotState.SEARCH_TARGET_ROWS,
+                failure_reason="Khong mo duoc danh sach 'Thu hoach trai'",
+                already_success_predicate=is_fruit_list_visible,
+                retry_forever=True,
+            )
         elif context.state == BotState.OPEN_HOME:
             handle_navigation_step(
                 context,

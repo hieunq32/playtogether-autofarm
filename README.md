@@ -4,20 +4,21 @@ Project nay da duoc doi sang dung flow thu hoach trai cay theo menu, dung voi mo
 
 Bot se lam theo thu tu:
 
-1. Tim va click `Nhà ta`
-2. Tim va click `Có thể thu hoạch`
-3. Trong popup, click `Thu hoạch trái`
-4. Trong danh sach trai cay, tim cac dong:
+1. Tim va click icon xanh `Thu hoạch` nam canh icon do `Bán`
+2. Danh sach `Thu hoạch trái` mo truc tiep, khong can qua `Nhà ta`
+3. Trong danh sach trai cay, tim cac dong:
    - Sau rieng
    - Khe
    - Tao duong
    - Dua
    - Dau
-5. Tim button `Thu hoạch` nam tren cung dong va click
+5. Tim button `Thu hoạch` nam tren cung dong va click nhanh toi da 3 dong moi luot
 6. Neu chua thay trai muc tieu tren man hinh hien tai thi cuon xuong
-7. Neu thay message `Túi đã đầy nên không thể thu hoạch` thi dung bot
+7. Neu gap popup `Mo khoa` (vi du cay Nhan sam), bot bam `Khong` va cuon nhanh 2 lan
+8. Neu thay message day tui thi xu ly tiep theo flow ban hien tai
 
-File 2 se xu ly flow ban sau khi day tui. Hien tai bot dung o moc day tui.
+Sau khi day tui, bot tiep tuc flow mua hat giong, ban nong san va mua voi tuoi theo
+config, sau do lap lai tu icon `Thu hoach`.
 
 ## Cau truc thu muc
 
@@ -84,8 +85,7 @@ Moi file phai la anh nho, crop sat vao ten trai hoac vung nhan dien on dinh cua 
 
 ### UI templates
 
-- `templates/ui/home_button.png`
-- `templates/ui/available_to_harvest_button.png`
+- `templates/ui/harvest_entry_icon_current.png`
 - `templates/ui/harvest_fruit_popup_button.png`
 - `templates/ui/fruit_harvest_row_button.png`
 - `templates/ui/bag_full_message.png`
