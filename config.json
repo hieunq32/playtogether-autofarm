@@ -25,6 +25,7 @@
     "device": "127.0.0.1:5555",
     "timeout_seconds": 5.0,
     "connect_retries": 2,
+    "swipe_retries": 1,
     "adb_screen_size": [
       1600,
       900
@@ -717,6 +718,31 @@
         ],
         "force_allow_fallback": false
       },
+      "tool_row_in_stock_status": {
+        "template": "templates/ui/seed_row_in_stock_status.png",
+        "threshold": 0.82,
+        "search_region_ratio": [
+          0.1,
+          0.18,
+          0.48,
+          0.76
+        ],
+        "force_allow_fallback": false
+      },
+      "tool_row_sold_out_status": {
+        "template": "templates/ui/seed_row_sold_out_status.png",
+        "template_candidates": [
+          "templates/ui/seed_row_sold_out_status_clean.png"
+        ],
+        "threshold": 0.84,
+        "search_region_ratio": [
+          0.1,
+          0.18,
+          0.48,
+          0.76
+        ],
+        "force_allow_fallback": false
+      },
       "tool_buy_price": {
         "template": "templates/ui/seed_buy_price_blue_button.png",
         "threshold": 0.86,
@@ -741,7 +767,7 @@
           0.47,
           0.76
         ],
-        "force_allow_fallback": true
+        "force_allow_fallback": false
       },
       "tool_shop_close": {
         "template": "templates/ui/seed_shop_close_x.png",
@@ -1054,6 +1080,7 @@
       0.96
     ],
     "seed_process_visible_rows_only": true,
+    "tool_row_status_tolerance_ratio": 0.12,
     "tool_shop_leave_option_click_attempts": 3,
     "tool_shop_final_dialog_clicks": 2,
     "seed_shop_leave_option_click_attempts": 3,

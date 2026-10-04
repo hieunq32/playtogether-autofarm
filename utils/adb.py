@@ -8,6 +8,7 @@ import numpy as np
 
 class BlueStacksAdb:
     def __init__(self, config: dict) -> None:
+        self.config = dict(config)
         self.device = str(config.get("device", "127.0.0.1:5555"))
         self.timeout_seconds = float(config.get("timeout_seconds", 5.0))
         self.connect_retries = int(config.get("connect_retries", 2))
@@ -88,28 +89,44 @@ class BlueStacksAdb:
         end_y: int,
         duration_ms: int = 350,
     ) -> bool:
-        if not self.ensure_connected():
-            return False
+        args = [
+            "-s",
+            self.device,
+            "shell",
+            "input",
+            "swipe",
+            str(start_x),
+            str(start_y),
+            str(end_x),
+            str(end_y),
+            str(duration_ms),
+        ]
+        max_attempts = max(1, int(self.config.get("swipe_retries", 1)) + 1)
+        last_detail = ""
 
-        result = self._run(
-            [
-                "-s",
-                self.device,
-                "shell",
-                "input",
-                "swipe",
-                str(start_x),
-                str(start_y),
-                str(end_x),
-                str(end_y),
-                str(duration_ms),
-            ],
-            check=False,
+        for attempt in range(1, max_attempts + 1):
+            if not self.ensure_connected():
+                last_detail = self.last_error or "ADB connection unavailable"
+            else:
+                result = self._run(args, check=False)
+                if result is not None and result.returncode == 0:
+                    self.last_error = ""
+                    return True
+                if result is None:
+                    last_detail = self.last_error or "ADB swipe command did not return a result"
+                else:
+                    last_detail = self._format_process_error(result)
+
+            self.last_error = (
+                f"Swipe attempt {attempt}/{max_attempts} failed: {last_detail}"
+            )
+
+        self.last_error = (
+            f"ADB swipe failed after {max_attempts} attempts "
+            f"(device={self.device}, {start_x},{start_y} -> {end_x},{end_y}, "
+            f"duration={duration_ms}ms): {last_detail}"
         )
-        ok = result is not None and result.returncode == 0
-        if not ok and result is not None:
-            self.last_error = self._format_process_error(result)
-        return ok
+        return False
 
     def describe(self) -> str:
         path = str(self.adb_path) if self.adb_path is not None else "not found"

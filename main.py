@@ -33,6 +33,14 @@ from utils.window import (
 )
 
 
+NO_COORDINATE_FALLBACK_ACTIONS = frozenset(
+    {
+        "tool_buy_price",
+        "tool_buy_popup_submit",
+    }
+)
+
+
 class BotState(Enum):
     WAIT_FOR_CHECK = auto()
     OPEN_HARVEST_ENTRY = auto()
@@ -295,6 +303,10 @@ def click_named_button(context: BotContext, action_name: str, frame=None) -> boo
         click_point = button_match.click_point
         source = match_source
     else:
+        if action_name in NO_COORDINATE_FALLBACK_ACTIONS:
+            log(f"Bo qua coordinate fallback cho '{action_name}': can nhan dien nut xanh.")
+            return False
+
         allow_fallback = context.config["navigation"].get("allow_fallback_clicks", False)
         if button_config.get("force_allow_fallback", False):
             allow_fallback = True
@@ -972,6 +984,49 @@ def get_seed_shop_row_status_match(context: BotContext, frame, row_index: int):
 
 def get_seed_shop_row_status(context: BotContext, frame, row_index: int) -> str:
     status, _ = get_seed_shop_row_status_match(context, frame, row_index)
+    return status
+
+
+def get_tool_row_status_match(context: BotContext, frame, target: dict):
+    row_action = str(target.get("row_action") or "")
+    if not row_action:
+        return "unknown", None
+
+    row_match = context.detector.find_action_button(frame, row_action)
+    if row_match is None:
+        return "unknown", None
+
+    tolerance_ratio = float(
+        context.config.get("workflow", {}).get(
+            "tool_row_status_tolerance_ratio",
+            0.12,
+        )
+    )
+    tolerance = max(8, round(frame.shape[0] * tolerance_ratio))
+    status_matches = []
+    for action_name, status_name in (
+        ("tool_row_in_stock_status", "available"),
+        ("tool_row_sold_out_status", "sold_out"),
+    ):
+        for match in context.detector.find_all_action_buttons(frame, action_name):
+            vertical_distance = abs(match.click_point[1] - row_match.click_point[1])
+            if vertical_distance <= tolerance:
+                status_matches.append(
+                    (vertical_distance, -match.score, status_name, match)
+                )
+
+    if not status_matches:
+        return "unknown", None
+
+    _, _, status_name, match = min(
+        status_matches,
+        key=lambda item: (item[0], item[1], item[2]),
+    )
+    return status_name, match
+
+
+def get_tool_row_status(context: BotContext, frame, target: dict) -> str:
+    status, _ = get_tool_row_status_match(context, frame, target)
     return status
 
 
@@ -2035,7 +2090,21 @@ def scroll_harvest_list(
     wheel_delta = int(scroll_config.get("down_wheel_delta", -360))
     distance_pixels = int(context.config["background"].get("scroll_distance_pixels", 420))
     for index in range(max(1, int(count))):
-        context.mouse.scroll_relative(context.window, hover_point, wheel_delta, distance_pixels)
+        try:
+            context.mouse.scroll_relative(
+                context.window,
+                hover_point,
+                wheel_delta,
+                distance_pixels,
+            )
+        except RuntimeError as exc:
+            log(f"{reason}: ADB swipe that bai; dung phien thu hoach an toan: {exc}")
+            finish_harvest_session(
+                context,
+                "ADB swipe khong thanh cong sau khi retry. Tam dung phien thu hoach an toan",
+            )
+            return
+
         context.scroll_attempts += 1
         context.no_match_search_attempts = 0
         log(
@@ -3112,13 +3181,13 @@ def handle_select_tool_item(context: BotContext) -> None:
 
 def handle_buy_tool_item(context: BotContext) -> None:
     target_name = get_current_tool_display_name(context)
-    if get_current_tool_target(context) is None:
+    target = get_current_tool_target(context)
+    if target is None:
         set_state(context, BotState.CLOSE_TOOL_SHOP)
         return
 
-    workflow_config = context.config.get("workflow", {})
     max_buy_button_attempts = get_tool_buy_button_retry_attempts(
-        get_current_tool_target(context),
+        target,
         context.config,
     )
     retry_delay = context.config["timing"].get(
@@ -3133,6 +3202,21 @@ def handle_buy_tool_item(context: BotContext) -> None:
             set_state(context, BotState.SEARCH_TOOL_ITEM)
             return
 
+        stock_status = get_tool_row_status(context, frame, target)
+        if stock_status == "sold_out":
+            log(f"{target_name} co nhan 'Het hang'. Bo qua, khong thu mua.")
+            advance_to_next_tool_target(context)
+            return
+
+        if stock_status != "available":
+            log(
+                f"Chua xac nhan duoc 'Trong kho' hoac 'Het hang' cho {target_name}. "
+                f"Khong bam nut mua (lan {attempt + 1}/{max_buy_button_attempts})."
+            )
+            if attempt < max_buy_button_attempts - 1:
+                sleep_random(retry_delay)
+            continue
+
         if click_seed_blue_button(context, "tool_buy_price", frame, target_name):
             set_state(context, BotState.CONFIRM_BUY_TOOL_ITEM)
             sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
@@ -3140,12 +3224,12 @@ def handle_buy_tool_item(context: BotContext) -> None:
 
         if attempt < max_buy_button_attempts - 1:
             log(
-                f"Chua thay nut xanh mua {target_name}. "
-                f"Doi panel ben phai on dinh lan {attempt + 1}/{max_buy_button_attempts}."
+                f"{target_name} co nhan 'Trong kho' nhung chua nhan dien duoc nut xanh mua. "
+                f"Cho panel on dinh lan {attempt + 1}/{max_buy_button_attempts}."
             )
             sleep_random(retry_delay)
 
-    log(f"Khong thay nut xanh de mua {target_name}. Xem nhu het hang va bo qua.")
+    log(f"Khong du dieu kien an toan de mua {target_name}. Bo qua target nay.")
     advance_to_next_tool_target(context)
 
 
