@@ -55,6 +55,62 @@ def test_sell_entry_rejects_an_order_icon_match_and_red_fallback(monkeypatch):
     assert mouse.clicks == []
 
 
+def test_sell_cart_template_threshold_covers_current_white_npc_button():
+    sell_cart = load_project_config()["navigation"]["buttons"]["sell_cart"]
+
+    assert sell_cart["threshold"] <= 0.79
+    assert sell_cart["force_allow_fallback"] is False
+
+
+def test_sell_cart_never_clicks_a_fixed_coordinate_when_image_match_is_missing(monkeypatch):
+    class Mouse:
+        def __init__(self):
+            self.clicks = []
+
+        def click_relative(self, window, point):
+            self.clicks.append(point)
+
+    config = load_project_config()
+    config["navigation"]["allow_fallback_clicks"] = True
+    config["navigation"]["buttons"]["sell_cart"]["force_allow_fallback"] = True
+    mouse = Mouse()
+    context = SimpleNamespace(
+        config=config,
+        mouse=mouse,
+        window=SimpleNamespace(width=528, height=312),
+        reference_client_size=(528, 312),
+    )
+    monkeypatch.setattr(main, "click_detected_action_only", lambda *_: False)
+    monkeypatch.setattr(main, "find_white_button_point_in_action_region", lambda *_: None)
+    monkeypatch.setattr(main, "find_action_button_stable", lambda *_: (None, "template"))
+
+    clicked = main.click_sell_cart_button(context, object())
+
+    assert clicked is False
+    assert mouse.clicks == []
+
+
+def test_missing_white_sell_cart_does_not_restart_red_sidebar_click_loop(monkeypatch):
+    config = load_project_config()
+    config["navigation"]["max_button_search_retries"] = 1
+    context = SimpleNamespace(
+        config=config,
+        state=main.BotState.OPEN_SELL_CART,
+        state_attempts=0,
+    )
+    monkeypatch.setattr(main, "capture_frame", lambda _: object())
+    monkeypatch.setattr(main, "sync_state_from_visible_screen", lambda *_: False)
+    monkeypatch.setattr(main, "is_npc_dialog_visible", lambda *_: False)
+    monkeypatch.setattr(main, "is_sell_produce_option_visible", lambda *_: False)
+    monkeypatch.setattr(main, "click_sell_cart_button", lambda *_: False)
+    monkeypatch.setattr(main, "sleep_random", lambda *_: None)
+
+    main.handle_open_sell_cart(context)
+
+    assert context.state == main.BotState.OPEN_SELL_CART
+    assert context.state_attempts == 0
+
+
 def test_sell_auto_select_runs_before_already_visible_blue_button(monkeypatch):
     config = load_project_config()
     context = SimpleNamespace(

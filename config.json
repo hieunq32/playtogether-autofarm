@@ -826,18 +826,14 @@
       "sell_cart": {
         "template": "templates/ui/sell_cart_manseok_basket.png",
         "template_candidates": [],
-        "threshold": 0.88,
+        "threshold": 0.76,
         "search_region_ratio": [
           0.38,
           0.16,
           0.62,
           0.44
         ],
-        "fallback_click_ratio": [
-          0.498,
-          0.302
-        ],
-        "force_allow_fallback": true
+        "force_allow_fallback": false
       },
       "npc_dialog_continue": {
         "template": "templates/ui/npc_dialog_manseok_name.png",

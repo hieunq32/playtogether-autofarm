@@ -35,6 +35,7 @@ from utils.window import (
 
 NO_COORDINATE_FALLBACK_ACTIONS = frozenset(
     {
+        "sell_cart",
         "tool_buy_price",
         "tool_buy_popup_submit",
     }
@@ -304,7 +305,7 @@ def click_named_button(context: BotContext, action_name: str, frame=None) -> boo
         source = match_source
     else:
         if action_name in NO_COORDINATE_FALLBACK_ACTIONS:
-            log(f"Bo qua coordinate fallback cho '{action_name}': can nhan dien nut xanh.")
+            log(f"Bo qua coordinate fallback cho '{action_name}': can nhan dien hinh anh.")
             return False
 
         allow_fallback = context.config["navigation"].get("allow_fallback_clicks", False)
@@ -689,17 +690,7 @@ def click_sell_entry_button(context: BotContext, frame) -> bool:
 
 
 def click_sell_cart_button(context: BotContext, frame) -> bool:
-    if click_detected_action_only(context, "sell_cart", frame, "sell_cart"):
-        return True
-
-    click_point = find_white_button_point_in_action_region(context, frame, "sell_cart")
-    if click_point is not None and context.window is not None:
-        context.mouse.click_relative(context.window, click_point)
-        log(f"Clicked 'sell_cart' bang nhan dien button trang tai {click_point}.")
-        sleep_random(context.config["timing"]["click_delay_seconds"])
-        return True
-
-    return click_named_button(context, "sell_cart", frame)
+    return click_detected_action_only(context, "sell_cart", frame, "sell_cart")
 
 
 def reset_session(context: BotContext) -> None:
@@ -3422,9 +3413,12 @@ def handle_open_sell_cart(context: BotContext) -> None:
     context.state_attempts += 1
     max_retries = int(context.config["navigation"]["max_button_search_retries"])
     if context.state_attempts >= max_retries:
-        log("Khong click duoc button gio hang trang sau nut 'Ban'. Quay lai tim nut do 'Ban'.")
+        log(
+            "Chua nhan dien duoc button gio hang trang sau nut 'Ban'. "
+            "Khong bam lai nut do tren sidebar; tiep tuc cho nhan dien hinh anh."
+        )
         context.state_attempts = 0
-        set_state(context, BotState.OPEN_SELL_ENTRY)
+        sleep_random(context.config["timing"]["post_navigation_wait_seconds"])
     else:
         sleep_random(context.config["timing"]["button_retry_delay_seconds"])
 
